@@ -2034,8 +2034,29 @@ if (!signageResponse.ok) {
 const matrixText = await matrixResponse.text();
 const signageText = await signageResponse.text();
 
-const matrixRows = parseCSV(matrixText);
-const signageRows = parseCSV(signageText);  const matrix = buildMatrix(matrixRows);
+document.getElementById('impactStatus').textContent =
+  'טוען נתוני GTFS ושילוט...';
+
+const [matrixResponse, signageResponse] = await Promise.all([
+  fetch('./stop_route_matrix.csv?v=' + Date.now()),
+  fetch('./exportSignsStatus.csv?v=' + Date.now())
+]);
+
+if (!matrixResponse.ok) {
+  throw new Error(
+    `לא ניתן לטעון stop_route_matrix.csv (${matrixResponse.status})`
+  );
+}
+
+if (!signageResponse.ok) {
+  throw new Error(
+    `לא ניתן לטעון exportSignsStatus.csv (${signageResponse.status})`
+  );
+}
+
+const matrixRows = parseCSV(await matrixResponse.text());
+const signageRows = parseCSV(await signageResponse.text());
+
   const signage = buildSignage(signageRows);
 
   const results = [];
@@ -2412,7 +2433,7 @@ function downloadStopCodesFile(stopCodes, fileName = 'stop_codes.txt') {
 document.getElementById('impactBtn').addEventListener('click', async () => {
   const btn = document.getElementById('impactBtn');
   const files = [...document.getElementById('fileInput').files];
-  const matrixFile = document.getElementById('matrixFile').files[0];
+  const matrixFile = null;
 
   state.filesRead = [];
   state.rows = [];
@@ -2429,12 +2450,7 @@ lastImpactResults = [];
     return;
   }
 
-  if (!matrixFile) {
-    state.warnings.push('לא הועלתה מטריצת GTFS.');
-    render();
-    document.getElementById('impactStatus').textContent = 'יש להעלות stop_route_matrix.csv.';
-    return;
-  }
+  
 
   btn.disabled = true;
   btn.textContent = 'מנתח...';
