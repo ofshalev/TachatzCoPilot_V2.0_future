@@ -2011,16 +2011,31 @@ async function runImpactAnalysis() {
     document.getElementById('impactStatus').textContent = 'אין עדיין טבלת תחנות מאוחדת. קודם נתח קבצי עדכון.';
     return;
   }
-  const matrixFile = document.getElementById('matrixFile').files[0];
-  const signageFile = document.getElementById('signageFile').files[0];
-  if (!matrixFile) {
-    document.getElementById('impactStatus').textContent = 'צריך להעלות stop_route_matrix.csv.';
-    return;
-  }
-  document.getElementById('impactStatus').textContent = 'קורא מטריצת GTFS...';
-  const matrixRows = parseCSV(await readCsvFile(matrixFile));
-  const signageRows = signageFile ? parseCSV(await readCsvFile(signageFile)) : [];
-  const matrix = buildMatrix(matrixRows);
+  document.getElementById('impactStatus').textContent =
+  'טוען נתוני GTFS ושילוט...';
+
+const [matrixResponse, signageResponse] = await Promise.all([
+  fetch('./stop_route_matrix.csv'),
+  fetch('./exportSignsStatus.csv')
+]);
+
+if (!matrixResponse.ok) {
+  throw new Error(
+    `לא ניתן לטעון stop_route_matrix.csv (${matrixResponse.status})`
+  );
+}
+
+if (!signageResponse.ok) {
+  throw new Error(
+    `לא ניתן לטעון exportSignsStatus.csv (${signageResponse.status})`
+  );
+}
+
+const matrixText = await matrixResponse.text();
+const signageText = await signageResponse.text();
+
+const matrixRows = parseCSV(matrixText);
+const signageRows = parseCSV(signageText);  const matrix = buildMatrix(matrixRows);
   const signage = buildSignage(signageRows);
 
   const results = [];
