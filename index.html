@@ -122,18 +122,7 @@
         <div class="hint">ניתן להעלות מספר קבצי DOCX/PDF/TXT יחד.</div>
       </div>
 
-      <div>
-        <b>GTFS stop-route matrix</b>
-        <input id="matrixFile" type="file" accept=".csv,text/csv" />
-        <div class="hint">הקובץ שנוצר על ידי <span class="ltr">build_gtfs_area.py</span>.</div>
-      </div>
-
-      <div>
-        <b>שילוט — אופציונלי</b>
-        <input id="signageFile" type="file" accept=".csv,text/csv" />
-        <div class="hint">לדוגמה <span class="ltr">exportSignsStatus.csv</span>.</div>
-      </div>
-    </div>
+      
 
     <div class="row" style="margin-top:14px">
       <button id="impactBtn">נתח השפעה מול GTFS</button>
@@ -2411,8 +2400,7 @@ function downloadStopCodesFile(stopCodes, fileName = 'stop_codes.txt') {
 document.getElementById('impactBtn').addEventListener('click', async () => {
   const btn = document.getElementById('impactBtn');
   const files = [...document.getElementById('fileInput').files];
-  const matrixFile = null;
-
+  
   state.filesRead = [];
   state.rows = [];
   state.warnings = [];
