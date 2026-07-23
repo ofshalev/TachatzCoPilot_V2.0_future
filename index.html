@@ -2034,7 +2034,8 @@ if (!signageResponse.ok) {
 const matrixRows = parseCSV(await matrixResponse.text());
 const signageRows = parseCSV(await signageResponse.text());
 
-  const signage = buildSignage(signageRows);
+const matrix = buildMatrix(matrixRows);
+const signage = buildSignage(signageRows);
 
   const results = [];
   for (const row of consolidated) {
