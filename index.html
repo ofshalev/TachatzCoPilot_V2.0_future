@@ -2015,29 +2015,6 @@ async function runImpactAnalysis() {
   'טוען נתוני GTFS ושילוט...';
 
 const [matrixResponse, signageResponse] = await Promise.all([
-  fetch('./stop_route_matrix.csv'),
-  fetch('./exportSignsStatus.csv')
-]);
-
-if (!matrixResponse.ok) {
-  throw new Error(
-    `לא ניתן לטעון stop_route_matrix.csv (${matrixResponse.status})`
-  );
-}
-
-if (!signageResponse.ok) {
-  throw new Error(
-    `לא ניתן לטעון exportSignsStatus.csv (${signageResponse.status})`
-  );
-}
-
-const matrixText = await matrixResponse.text();
-const signageText = await signageResponse.text();
-
-document.getElementById('impactStatus').textContent =
-  'טוען נתוני GTFS ושילוט...';
-
-const [matrixResponse, signageResponse] = await Promise.all([
   fetch('./stop_route_matrix.csv?v=' + Date.now()),
   fetch('./exportSignsStatus.csv?v=' + Date.now())
 ]);
