@@ -1750,7 +1750,8 @@ function generateEventData(fileNames, text) {
   const files = fileNames || [];
 
   let result = null;
-
+  let format = '';
+  
   if (!files.length) {
     result = parseUnknownTitle('', text);
   } else {
@@ -1759,7 +1760,7 @@ function generateEventData(fileNames, text) {
       Multi-operator event-title consolidation can be added separately.
     */
     const fileName = files[0];
-    const format = detectTitleFormat(fileName, text);
+    format = detectTitleFormat(fileName, text);
 
     if (format === 'dan') {
       result = parseDanTitle(fileName, text);
