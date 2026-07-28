@@ -509,24 +509,26 @@ function extractStopFromLines(lines, index) {
     .replace(/\r/g, '')
     .split('\n')
     .map(line => line.replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter(line => {
+      // Ignore separators added between uploaded files.
+      return !/^=+.*=+$/.test(line);
+    });
 
   const descriptionLines = [];
 
-  const stopPattern =
-    /(?:^|\s)(?:קו(?:וים)?|קווים)\s*\d|מסלול|מסלולים|תחנות|תחנה מבוטלת|לכיוון|חלופה|ייסע|יפנה|ימשיך|יחזור|ידלג|לא יעבור|שינוי מסלול/i;
+  const servicePlanPattern =
+    /^(?:קו\s*\d+|קווים\s*\d+.*(?:ייסעו|יפעלו|יבצעו)|מסלול(?:י)?\s+הקו|לכיוון|כיוון נסיעה|תחנות מבוטלות|תחנות חלופיות|החלופה|פירוט השינויים|להלן השינויים)/i;
 
   for (const line of lines) {
-    if (descriptionLines.length && stopPattern.test(line)) {
+    if (
+      descriptionLines.length > 0 &&
+      servicePlanPattern.test(line)
+    ) {
       break;
     }
 
     descriptionLines.push(line);
-
-    // Usually the opening notice is only one to three lines.
-    if (descriptionLines.length >= 3) {
-      break;
-    }
   }
 
   return descriptionLines
