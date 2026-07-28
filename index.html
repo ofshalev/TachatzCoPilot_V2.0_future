@@ -550,15 +550,28 @@ function extractStopFromLines(lines, index) {
     Stop before the route-change explanation.
   */
   if (format === 'dan') {
-    const danDescription = extractBetween(
-      /מביאים\s+בזאת\s+לידיעתכם/i,
-      /ויחולו\s+שינויים\s+במסלולי\s+הקווים|ויחול\s+שינוי\s+במסלול\s+הקו/i
-    );
+  const danStartPattern =
+    /מביאים\s+בזאת\s+לידיעתכם/i;
 
-    if (danDescription) {
-      return danDescription.replace(/^כי\s+/, '').trim();
-    }
+  const danEndPattern =
+    /ויחולו\s+שינויים\s+במסלולי\s+הקווים|ויחול\s+שינוי(?:ים)?\s+במסלול(?:י)?\s+הקו(?:וים)?/i;
+
+  const startMatch = normalizedText.match(danStartPattern);
+
+  if (startMatch) {
+    const fromStart = normalizedText.slice(startMatch.index);
+    const endMatch = fromStart.match(danEndPattern);
+
+    const danDescription = endMatch
+      ? fromStart.slice(
+          0,
+          endMatch.index + endMatch[0].length
+        )
+      : fromStart;
+
+    return cleanDescription(danDescription);
   }
+}
 
   /*
     Metropoline:
@@ -566,16 +579,32 @@ function extractStopFromLines(lines, index) {
     Stop before "יחול שינוי מסלול".
   */
   if (format === 'metropoline') {
-    const metropolineDescription = extractBetween(
-      /לידיעתכם/i,
-      /יחול\s+שינוי\s+(?:ב)?מסלול/i,
-      { keepStart: true }
+  const metropolineStartPattern =
+    /לידיעתכם/i;
+
+  const metropolineEndPattern =
+    /יחול(?:ו)?\s+שינוי(?:ים)?\s+(?:ב)?מסלול(?:י)?(?:\s+הקו(?:וים)?)?/i;
+
+  const startMatch = normalizedText.match(
+    metropolineStartPattern
+  );
+
+  if (startMatch) {
+    const fromStart = normalizedText.slice(startMatch.index);
+    const endMatch = fromStart.match(
+      metropolineEndPattern
     );
 
-    if (metropolineDescription) {
-      return metropolineDescription;
-    }
+    const metropolineDescription = endMatch
+      ? fromStart.slice(
+          0,
+          endMatch.index + endMatch[0].length
+        )
+      : fromStart;
+
+    return cleanDescription(metropolineDescription);
   }
+}
 
   /*
     Egged:
