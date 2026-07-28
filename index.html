@@ -504,25 +504,158 @@ function extractStopFromLines(lines, index) {
   return stop;
 }
 
- function extractEventDescription(text) {
-  const lines = String(text || '')
-    .replace(/\r/g, '')
+ function extractEventDescription(text, format = '') {
+  const rawText = String(text || '')
+    .replace(/\r/g, '');
+
+  const normalizedText = rawText
+    .replace(/^=+.*=+$/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  function cleanDescription(value) {
+    return String(value || '')
+      .replace(/^[\s,.:;–—-]+/, '')
+      .replace(/\s+([,.:;])/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function extractBetween(startPattern, endPattern, options = {}) {
+    const startMatch = normalizedText.match(startPattern);
+
+    if (!startMatch) {
+      return '';
+    }
+
+    const startIndex = startMatch.index +
+      (options.keepStart ? 0 : startMatch[0].length);
+
+    const remainingText = normalizedText
+      .slice(startIndex)
+      .trim();
+
+    const endMatch = remainingText.match(endPattern);
+
+    const extractedText = endMatch
+      ? remainingText.slice(0, endMatch.index)
+      : remainingText;
+
+    return cleanDescription(extractedText);
+  }
+
+  /*
+    Dan:
+    Start after "מביאים בזאת לידיעתכם"
+    Stop before the route-change explanation.
+  */
+  if (format === 'dan') {
+    const danDescription = extractBetween(
+      /מביאים\s+בזאת\s+לידיעתכם/i,
+      /ויחולו\s+שינויים\s+במסלולי\s+הקווים|ויחול\s+שינוי\s+במסלול\s+הקו/i
+    );
+
+    if (danDescription) {
+      return danDescription.replace(/^כי\s+/, '').trim();
+    }
+  }
+
+  /*
+    Metropoline:
+    Keep "לידיעתכם" at the beginning.
+    Stop before "יחול שינוי מסלול".
+  */
+  if (format === 'metropoline') {
+    const metropolineDescription = extractBetween(
+      /לידיעתכם/i,
+      /יחול\s+שינוי\s+(?:ב)?מסלול/i,
+      { keepStart: true }
+    );
+
+    if (metropolineDescription) {
+      return metropolineDescription;
+    }
+  }
+
+  /*
+    Egged:
+    Skip document headers and begin at the actual event notice.
+    Stop before the first route-specific section.
+  */
+  if (format === 'egged') {
+    const lines = rawText
+      .split('\n')
+      .map(line => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .filter(line => !/^=+.*=+$/.test(line));
+
+    const descriptionLines = [];
+    let descriptionStarted = false;
+
+    const openingPattern =
+      /^(?:בימים|ביום|בתאריך|בתאריכים|החל\s+מ|לידיעתכם)/;
+
+    const servicePlanPattern =
+      /^(?:קו(?:וים)?\s*\d+|קווים\s*\d+|מכיוון|לכיוון|כיוון\s+נסיעה|תחנות\s+מבוטלות|תחנות\s+חלופיות|מסלול|פירוט\s+השינויים|להלן\s+השינויים)/;
+
+    for (const line of lines) {
+      if (!descriptionStarted) {
+        if (!openingPattern.test(line)) {
+          continue;
+        }
+
+        descriptionStarted = true;
+      }
+
+      if (
+        descriptionLines.length &&
+        servicePlanPattern.test(line)
+      ) {
+        break;
+      }
+
+      descriptionLines.push(line);
+    }
+
+    const eggedDescription = cleanDescription(
+      descriptionLines.join(' ')
+    );
+
+    if (eggedDescription) {
+      return eggedDescription;
+    }
+  }
+
+  /*
+    General fallback for Afikim, Kavim, Superbus
+    and announcements with an unknown format.
+  */
+  const lines = rawText
     .split('\n')
     .map(line => line.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
-    .filter(line => {
-      // Ignore separators added between uploaded files.
-      return !/^=+.*=+$/.test(line);
-    });
+    .filter(line => !/^=+.*=+$/.test(line));
 
   const descriptionLines = [];
+  let descriptionStarted = false;
+
+  const openingPattern =
+    /^(?:לידיעתכם|בימים|ביום|בתאריך|בתאריכים|החל\s+מ)/;
 
   const servicePlanPattern =
-    /^(?:קו\s*\d+|קווים\s*\d+.*(?:ייסעו|יפעלו|יבצעו)|מסלול(?:י)?\s+הקו|לכיוון|כיוון נסיעה|תחנות מבוטלות|תחנות חלופיות|החלופה|פירוט השינויים|להלן השינויים)/i;
+    /^(?:קו(?:וים)?\s*\d+|קווים\s*\d+|מסלול|לכיוון|מכיוון|כיוון\s+נסיעה|תחנות\s+מבוטלות|תחנות\s+חלופיות|פירוט\s+השינויים|להלן\s+השינויים)/;
 
   for (const line of lines) {
+    if (!descriptionStarted) {
+      if (!openingPattern.test(line)) {
+        continue;
+      }
+
+      descriptionStarted = true;
+    }
+
     if (
-      descriptionLines.length > 0 &&
+      descriptionLines.length &&
       servicePlanPattern.test(line)
     ) {
       break;
@@ -531,13 +664,10 @@ function extractStopFromLines(lines, index) {
     descriptionLines.push(line);
   }
 
-  return descriptionLines
-    .join(' ')
-    .replace(/\s+([,.:;])/g, '$1')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return cleanDescription(descriptionLines.join(' '));
 }
 
+  
 function inferOperator(fileName, text, routes) {
   const hay = cleanText(`${fileName || ''}\n${text || ''}`);
   const c = compact(hay).toLowerCase();
@@ -1649,7 +1779,7 @@ function generateEventData(fileNames, text) {
   }
 
   if (result) {
-    result.description = extractEventDescription(text);
+    result.description = extractEventDescription(text, format);
   }
 
   return result;
