@@ -554,7 +554,7 @@ function extractStopFromLines(lines, index) {
     /מביאים\s+בזאת\s+לידיעתכם/i;
 
   const danEndPattern =
-    /ויחולו\s+שינויים\s+במסלולי\s+הקווים|ויחול\s+שינוי(?:ים)?\s+במסלול(?:י)?\s+הקו(?:וים)?/i;
+  /ויחולו?\s+שינוי(?:ים)?\s+במסלול(?:י)?\s+(?:הקווים|הקו|קו\s*\d+)/i;
 
   const startMatch = normalizedText.match(danStartPattern);
 
