@@ -102,6 +102,19 @@
   direction: rtl;
 }
 
+#eventDescription {
+  width: 100%;
+  min-height: 130px;
+  box-sizing: border-box;
+  padding: 12px;
+  direction: rtl;
+  text-align: right;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
     
     @media (max-width:900px) { .impact-grid, .impact-summary, .stats { grid-template-columns:1fr; } }
   </style>
@@ -500,15 +513,20 @@ function extractStopFromLines(lines, index) {
 
   const descriptionLines = [];
 
-  const routeSectionPattern =
-    /^(?:קו|קווים|הקו|הקווים|מסלול|מסלולים|תחנה|תחנות|לכיוון|כיוון)\b/;
+  const stopPattern =
+    /(?:^|\s)(?:קו(?:וים)?|קווים)\s*\d|מסלול|מסלולים|תחנות|תחנה מבוטלת|לכיוון|חלופה|ייסע|יפנה|ימשיך|יחזור|ידלג|לא יעבור|שינוי מסלול/i;
 
   for (const line of lines) {
-    if (routeSectionPattern.test(line)) {
+    if (descriptionLines.length && stopPattern.test(line)) {
       break;
     }
 
     descriptionLines.push(line);
+
+    // Usually the opening notice is only one to three lines.
+    if (descriptionLines.length >= 3) {
+      break;
+    }
   }
 
   return descriptionLines
