@@ -169,6 +169,16 @@
 <div id="eventTimingNote" class="event-timing-note" hidden></div>
 </div>
 
+<div class="field">
+  <label for="eventDescription">תיאור האירוע</label>
+
+  <textarea
+    id="eventDescription"
+    rows="4"
+    placeholder="תיאור האירוע יופק מתוך ההודעה"
+  ></textarea>
+</div>
+    
     <div class="hint">
       תמיכה בדפדפן: DOCX באמצעות Mammoth, PDF באמצעות PDF.js, TXT ישירות. קבצי DOC ישנים אינם נתמכים ישירות בדפדפן; כדאי לפתוח ב-Word ולשמור כ-DOCX/PDF, או לטפל בהם בגרסת Python/שרת עם LibreOffice.<br>
       v17 שומר על תיקוני החילוץ של v13 ומשפר את יצירת כותרת האירוע לפי שם הקובץ, כותרת המסמך, סוג האירוע ותבניות תאריכים מורכבות.
@@ -238,7 +248,8 @@ const state = {
   warnings: [],
   raw: '',
   eventTitle: '',
-  eventTiming: ''
+  eventTiming: '',
+  eventDescription: '',
 };
 const stopCodeRe = /\b\d{5}\b/g;
 
@@ -478,6 +489,33 @@ function extractStopFromLines(lines, index) {
     stop.name = candidates[0];
   }
   return stop;
+}
+
+ function extractEventDescription(text) {
+  const lines = String(text || '')
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  const descriptionLines = [];
+
+  const routeSectionPattern =
+    /^(?:קו|קווים|הקו|הקווים|מסלול|מסלולים|תחנה|תחנות|לכיוון|כיוון)\b/;
+
+  for (const line of lines) {
+    if (routeSectionPattern.test(line)) {
+      break;
+    }
+
+    descriptionLines.push(line);
+  }
+
+  return descriptionLines
+    .join(' ')
+    .replace(/\s+([,.:;])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function inferOperator(fileName, text, routes) {
@@ -1558,43 +1596,51 @@ function buildEventTitle(result) {
     .join(', ');
 }
 
-function generateEventTitle(fileNames, text) {
+function generateEventData(fileNames, text) {
   const files = fileNames || [];
-
-  if (!files.length) {
-    return buildEventTitle(
-      parseUnknownTitle('', text)
-    );
-  }
-
-  /*
-    The title currently represents the first uploaded announcement.
-    Multi-operator event-title consolidation can be added separately.
-  */
-  const fileName = files[0];
-  const format = detectTitleFormat(fileName, text);
 
   let result = null;
 
-  if (format === 'dan') {
-    result = parseDanTitle(fileName, text);
-  } else if (format === 'metropoline') {
-    result = parseMetropolineTitle(fileName, text);
-  } else if (format === 'superbus') {
-    result = parseSuperbusTitle(fileName, text);
-  } else if (format === 'afikim') {
-    result = parseAfikimTitle(fileName, text);
-  } else if (format === 'egged') {
-    result = parseEggedTitle(fileName, text);
+  if (!files.length) {
+    result = parseUnknownTitle('', text);
+  } else {
+    /*
+      The title currently represents the first uploaded announcement.
+      Multi-operator event-title consolidation can be added separately.
+    */
+    const fileName = files[0];
+    const format = detectTitleFormat(fileName, text);
+
+    if (format === 'dan') {
+      result = parseDanTitle(fileName, text);
+    } else if (format === 'metropoline') {
+      result = parseMetropolineTitle(fileName, text);
+    } else if (format === 'superbus') {
+      result = parseSuperbusTitle(fileName, text);
+    } else if (format === 'afikim') {
+      result = parseAfikimTitle(fileName, text);
+    } else if (format === 'egged') {
+      result = parseEggedTitle(fileName, text);
+    }
+
+    if (!result) {
+      result = parseUnknownTitle(fileName, text);
+    }
   }
 
-  if (!result) {
-    result = parseUnknownTitle(fileName, text);
+  if (result) {
+    result.description = extractEventDescription(text);
   }
 
-  return buildEventTitle(result);
+  return result;
 }
 
+function generateEventTitle(fileNames, text) {
+  return buildEventTitle(
+    generateEventData(fileNames, text)
+  );
+}
+  
 function consolidate(rows) {
   const map = new Map();
   for (const r of rows) {
@@ -1631,12 +1677,16 @@ function render() {
 
   const titleBox = document.getElementById('eventTitleBox');
   const titleInput = document.getElementById('eventTitle');
+  const descriptionInput =
+  document.getElementById('eventDescription');
   if (state.eventTitle) {
     titleBox.style.display = 'block';
     titleInput.value = state.eventTitle;
+    descriptionInput.value = state.eventDescription || '';
   } else {
     titleBox.style.display = 'none';
     titleInput.value = '';
+    descriptionInput.value = '';
   }
 
 const timingNote = document.getElementById('eventTimingNote');
@@ -2454,7 +2504,10 @@ lastImpactResults = [];
       }
     }
 
-    state.eventTitle = generateEventTitle(state.filesRead, state.raw);
+    const eventData = generateEventData(state.filesRead, state.raw);
+
+state.eventTitle = buildEventTitle(eventData);
+state.eventDescription = eventData?.description || '';
 state.eventTiming = extractEventTiming(state.raw);
 render();
 
@@ -2473,7 +2526,22 @@ render();
   }
 });
 
+document
+  .getElementById('eventDescription')
+  .addEventListener('input', event => {
+    state.eventDescription = event.target.value;
+  });
 
+document
+  .getElementById('editEventTitleBtn')
+  .addEventListener('click', () => {
+    const input = document.getElementById('eventTitle');
+    const button = document.getElementById('editEventTitleBtn');
+
+    // existing title-edit code continues here
+  });
+
+  
 document
   .getElementById('editEventTitleBtn')
   .addEventListener('click', () => {
