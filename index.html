@@ -115,6 +115,23 @@
   resize: vertical;
 }
 
+    .event-description-section {
+  margin-top: 16px;
+}
+
+.event-title-row textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 110px;
+  box-sizing: border-box;
+  padding: 12px;
+  direction: rtl;
+  text-align: right;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  resize: vertical;
+}
     
     @media (max-width:900px) { .impact-grid, .impact-summary, .stats { grid-template-columns:1fr; } }
   </style>
@@ -179,17 +196,39 @@
   </div>
 </div>
 
+
 <div id="eventTimingNote" class="event-timing-note" hidden></div>
 </div>
 
-<div class="field">
+<div class="field event-description-section">
   <label for="eventDescription">תיאור האירוע</label>
 
-  <textarea
-    id="eventDescription"
-    rows="4"
-    placeholder="תיאור האירוע יופק מתוך ההודעה"
-  ></textarea>
+  <div class="event-title-row">
+    <textarea
+      id="eventDescription"
+      rows="4"
+      aria-label="תיאור האירוע"
+      placeholder="תיאור האירוע יופק מתוך ההודעה"
+      readonly
+    ></textarea>
+
+    <div class="event-title-actions">
+      <button
+        id="editEventDescriptionBtn"
+        type="button"
+        class="secondary"
+      >
+        ערוך
+      </button>
+
+      <button
+        id="copyEventDescriptionBtn"
+        type="button"
+      >
+        העתק
+      </button>
+    </div>
+  </div>
 </div>
     
     <div class="hint">
@@ -2711,16 +2750,6 @@ document
   .addEventListener('input', event => {
     state.eventDescription = event.target.value;
   });
-
-document
-  .getElementById('editEventTitleBtn')
-  .addEventListener('click', () => {
-    const input = document.getElementById('eventTitle');
-    const button = document.getElementById('editEventTitleBtn');
-
-    // existing title-edit code continues here
-  });
-
   
 document
   .getElementById('editEventTitleBtn')
@@ -2768,6 +2797,57 @@ document
   });
 
 
+document
+  .getElementById('editEventDescriptionBtn')
+  .addEventListener('click', () => {
+    const textarea =
+      document.getElementById('eventDescription');
+
+    const button =
+      document.getElementById('editEventDescriptionBtn');
+
+    if (textarea.readOnly) {
+      textarea.readOnly = false;
+      button.textContent = 'שמור';
+      textarea.focus();
+      textarea.select();
+    } else {
+      textarea.readOnly = true;
+      button.textContent = 'ערוך';
+      state.eventDescription = textarea.value.trim();
+    }
+  });
+
+document
+  .getElementById('copyEventDescriptionBtn')
+  .addEventListener('click', async () => {
+    const textarea =
+      document.getElementById('eventDescription');
+
+    const button =
+      document.getElementById('copyEventDescriptionBtn');
+
+    const text = textarea.value.trim();
+
+    if (!text) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+
+      button.textContent = 'הועתק';
+
+      setTimeout(() => {
+        button.textContent = 'העתק';
+      }, 1200);
+    } catch (error) {
+      textarea.focus();
+      textarea.select();
+      document.execCommand('copy');
+    }
+  });
+  
 document
   .getElementById('copyAppsMessageBtn')
   .addEventListener('click', async () => {
