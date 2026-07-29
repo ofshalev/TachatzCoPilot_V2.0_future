@@ -1712,7 +1712,13 @@ let locationRaw = matchedReason
   : reasonLocationRaw.trim();
 
 locationRaw = locationRaw
-  // Preserve the location type while removing the connecting ב
+  // Remove redundant blockage wording from Egged filenames
+  .replace(/^חסימה\s+בכיכר\s+/, 'כיכר ')
+  .replace(/^חסימה\s+ברחוב\s+/, '')
+  .replace(/^חסימה\s+ברח['׳״"]\s*/, '')
+  .replace(/^חסימה\s+בדרך\s+/, 'דרך ')
+
+  // Preserve meaningful location types while removing connecting wording
   .replace(/^בקטע\s+מדרך\s+/, 'קטע בדרך ')
   .replace(/^בקטע\s+בדרך\s+/, 'קטע בדרך ')
   .replace(/^בקטע\s+מרחוב\s+/, 'קטע ברחוב ')
@@ -1731,10 +1737,12 @@ locationRaw = locationRaw
   .replace(/^בצומת\s+הרחובות\s+/, 'צומת ')
   .replace(/^בצומת\s+/, 'צומת ')
 
+  // Remove any date wording accidentally left inside the location
   .replace(
     /\s+(?:בתאריכים|תאריכים|בתאריך|תאריך)\s+\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?(?:\s*[-–]\s*\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?)?.*$/,
     ''
   )
+
   .replace(/\s+/g, ' ')
   .trim();
 
