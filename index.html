@@ -147,6 +147,18 @@
 .event-district-label {
   font-weight: 600;
 }
+
+    .event-district-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
     
     @media (max-width:900px) { .impact-grid, .impact-summary, .stats { grid-template-columns:1fr; } }
   </style>
@@ -211,14 +223,7 @@
   </div>
 </div>
 
-      <div
-  id="eventDistrictBox"
-  class="event-district-box"
-  style="display:none"
->
-  <span class="event-district-label">מחוז משרד התחבורה:</span>
-  <strong id="eventDistrict"></strong>
-</div>
+   
 
 
 <div id="eventTimingNote" class="event-timing-note" hidden></div>
@@ -278,6 +283,18 @@
     <button id="copyAppsMessageBtn" type="button">
       העתק
     </button>
+  </div>
+
+  <div
+    id="eventDistrictBox"
+    class="event-district-box"
+    style="display:none"
+  >
+    <span class="event-district-label">
+      מחוז משרד התחבורה:
+    </span>
+
+    <strong id="eventDistrict"></strong>
   </div>
 
   <textarea
