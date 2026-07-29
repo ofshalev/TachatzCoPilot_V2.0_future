@@ -132,6 +132,21 @@
   line-height: 1.6;
   resize: vertical;
 }
+
+    .event-district-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.event-district-label {
+  font-weight: 600;
+}
     
     @media (max-width:900px) { .impact-grid, .impact-summary, .stats { grid-template-columns:1fr; } }
   </style>
@@ -194,6 +209,15 @@
       העתק
     </button>
   </div>
+</div>
+
+      <div
+  id="eventDistrictBox"
+  class="event-district-box"
+  style="display:none"
+>
+  <span class="event-district-label">מחוז משרד התחבורה:</span>
+  <strong id="eventDistrict"></strong>
 </div>
 
 
@@ -2700,7 +2724,61 @@ function formatTimingDateRange(startDate, endDate) {
   );
 }
 
+  function updateFutureEventDistrict(city) {
+  const districtBox =
+    document.getElementById('eventDistrictBox');
 
+  const districtElement =
+    document.getElementById('eventDistrict');
+
+  if (!districtBox || !districtElement) return;
+
+  const normalizedCity = cleanText(city || '');
+
+  if (!normalizedCity) {
+    districtElement.textContent = '';
+    districtBox.style.display = 'none';
+    return;
+  }
+
+  districtElement.textContent =
+    getEventDistrict(normalizedCity);
+
+  districtBox.style.display = 'flex';
+}
+
+function getEventDistrict(primaryLocation) {
+  const normalizedLocation = cleanText(primaryLocation || '')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const telAvivDistrictLocations = [
+    'תל אביב',
+    'רמת גן',
+    'גבעתיים',
+    'חולון',
+    'בת ים',
+    'ראשון לציון',
+    'אזור',
+    'קרית אונו',
+    'קריית אונו',
+    'גני תקווה',
+    'אור יהודה',
+    'סביון',
+    'יהוד',
+    'יהוד מונוסון',
+    'גבעת שמואל',
+    'ראש העין',
+    'אלעד',
+    'כפר קאסם'
+  ];
+
+  return telAvivDistrictLocations.includes(normalizedLocation)
+    ? 'מחוז תל אביב'
+    : 'מחוז מרכז';
+}
+  
 function downloadStopCodesFile(stopCodes, fileName = 'stop_codes.txt') {
   const cleanCodes = [...new Set(
     (stopCodes || [])
@@ -2778,11 +2856,18 @@ lastImpactResults = [];
       }
     }
 
-    const eventData = generateEventData(state.filesRead, state.raw);
+    const eventData = generateEventData(
+  state.filesRead,
+  state.raw
+);
 
 state.eventTitle = buildEventTitle(eventData);
 state.eventDescription = eventData?.description || '';
 state.eventTiming = extractEventTiming(state.raw);
+
+// Display the MOT district according to the parsed primary city.
+updateFutureEventDistrict(eventData?.city || '');
+
 render();
 
     if (state.rows.length) {
