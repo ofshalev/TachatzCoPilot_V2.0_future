@@ -1387,13 +1387,36 @@ let locationRaw = reasonLocationRaw
   .trim();
 
   locationRaw = locationRaw
-    .replace(/^ברחוב\s+/, '')
-    .replace(/^ברח['׳]\s*/, '')
-    .replace(/^בדרך\s+/, '')
-    .replace(/^בצומת\s+/, 'צומת ')
-    .replace(/\s*[-–—]\s*(?:תאריך|תאריכים)\s*[-–—]?\s*$/i, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // Remove Egged filename wording that describes the blockage
+  .replace(/^חסימה\s+בכיכר\s+/, 'כיכר ')
+  .replace(/^חסימה\s+ברחוב\s+/, '')
+  .replace(/^חסימה\s+ברח['׳״"]\s*/, '')
+  .replace(/^חסימה\s+בדרך\s+/, 'דרך ')
+
+  // Preserve meaningful location types
+  .replace(/^בקטע\s+מדרך\s+/, 'קטע בדרך ')
+  .replace(/^בקטע\s+בדרך\s+/, 'קטע בדרך ')
+  .replace(/^בקטע\s+מרחוב\s+/, 'קטע ברחוב ')
+  .replace(/^בקטע\s+ברחוב\s+/, 'קטע ברחוב ')
+  .replace(/^בקטע\s+(?:בין\s+)?רחוב\s+/, 'קטע בין רחוב ')
+  .replace(/^בקטע\s+/, 'קטע ')
+
+  .replace(/^מדרך\s+/, 'דרך ')
+  .replace(/^מרחוב\s+/, 'רחוב ')
+  .replace(/^בדרך\s+/, 'דרך ')
+  .replace(/^ברחוב\s+/, 'רחוב ')
+  .replace(/^ברח['׳״"]\s*/, 'רחוב ')
+  .replace(/^בכיכר\s+/, 'כיכר ')
+
+  .replace(/^בצומת\s+הרחובות\s+/, 'צומת ')
+  .replace(/^בצומת\s+/, 'צומת ')
+
+  .replace(
+    /\s+(?:בתאריכים|תאריכים|בתאריך|תאריך)\s+\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?(?:\s*[-–]\s*\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?)?.*$/,
+    ''
+  )
+  .replace(/\s+/g, ' ')
+  .trim();
 
   return {
   operator: 'דן',
