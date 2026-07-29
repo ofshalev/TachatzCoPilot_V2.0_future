@@ -1666,29 +1666,53 @@ function parseEggedTitle(fileName, text) {
     'אירוע'
   ];
 
-  let reason =
-  reasonPatterns.find(item => reasonLocationRaw.startsWith(item)) ||
-  'שינוי תנועה';
+const matchedReason =
+  reasonPatterns.find(item => reasonLocationRaw.startsWith(item)) || '';
+
+let reason = matchedReason || 'שינוי תנועה';
 
 const documentText = cleanText(text || '');
 
-if (/עבודות/.test(documentText)) {
+// Use the document to identify עבודות only when the filename
+// did not already provide a more specific עבודות reason.
+if (
+  /עבודות/.test(documentText) &&
+  !reason.startsWith('עבודות')
+) {
   reason = 'עבודות';
 }
 
-
-let locationRaw = reasonLocationRaw.slice(reason.length).trim();
+// Always remove from the filename only the reason that was
+// actually found at the beginning of the filename.
+let locationRaw = matchedReason
+  ? reasonLocationRaw.slice(matchedReason.length).trim()
+  : reasonLocationRaw.trim();
 
 locationRaw = locationRaw
-  .replace(/^בקטע\s+(?:בין\s+)?רחוב\s+/, '')
-  .replace(/^בקטע\s+/, '')
-  .replace(/^מרחוב\s+/, '')
-  .replace(/^בדרך\s+/, '')       // add this exact line
-  .replace(/^ברחוב\s+/, '')
-  .replace(/^ברח['׳]\s*/, '')
+  // Preserve the location type while removing the connecting ב
+  .replace(/^בקטע\s+מדרך\s+/, 'קטע בדרך ')
+  .replace(/^בקטע\s+בדרך\s+/, 'קטע בדרך ')
+  .replace(/^בקטע\s+מרחוב\s+/, 'קטע ברחוב ')
+  .replace(/^בקטע\s+ברחוב\s+/, 'קטע ברחוב ')
+  .replace(/^בקטע\s+(?:בין\s+)?רחוב\s+/, 'קטע בין רחוב ')
+  .replace(/^בקטע\s+/, 'קטע ')
+
+  .replace(/^מדרך\s+/, 'דרך ')
+  .replace(/^מרחוב\s+/, 'רחוב ')
+
+  .replace(/^בדרך\s+/, 'דרך ')
+  .replace(/^ברחוב\s+/, 'רחוב ')
+  .replace(/^ברח['׳״"]\s*/, 'רחוב ')
+  .replace(/^בכיכר\s+/, 'כיכר ')
+
   .replace(/^בצומת\s+הרחובות\s+/, 'צומת ')
   .replace(/^בצומת\s+/, 'צומת ')
-.replace(/\s+(?:בתאריכים|תאריכים|בתאריך|תאריך)\s+\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?(?:\s*[-–]\s*\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?)?.*$/, '')
+
+  .replace(
+    /\s+(?:בתאריכים|תאריכים|בתאריך|תאריך)\s+\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?(?:\s*[-–]\s*\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?)?.*$/,
+    ''
+  )
+  .replace(/\s+/g, ' ')
   .trim();
 
 return {
