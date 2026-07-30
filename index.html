@@ -2873,6 +2873,7 @@ function renderEventTimeRanges() {
   const endTime = timeMatch[2];
 
   const sequenceItems = [];
+  extensionSequenceItems = sequenceItems;
 
   const controls = document.createElement('div');
 
@@ -2884,16 +2885,19 @@ function renderEventTimeRanges() {
   controls.style.direction = 'rtl';
 
   const startSequenceButton = document.createElement('button');
+  startSequenceButton.id = 'startTimeSequenceButton';
   startSequenceButton.type = 'button';
   startSequenceButton.textContent = 'התחל העתקה רציפה';
 
   const stopSequenceButton = document.createElement('button');
+  stopSequenceButton.id = 'stopTimeSequenceButton';
   stopSequenceButton.type = 'button';
   stopSequenceButton.className = 'secondary';
   stopSequenceButton.textContent = 'עצור';
   stopSequenceButton.disabled = true;
 
   const sequenceStatus = document.createElement('div');
+  sequenceStatus.id = 'timeSequenceStatus';
   sequenceStatus.style.fontSize = '14px';
   sequenceStatus.style.color = 'var(--muted)';
   sequenceStatus.setAttribute('aria-live', 'polite');
@@ -3022,66 +3026,46 @@ function renderEventTimeRanges() {
     list.appendChild(row);
   }
 
-  startSequenceButton.addEventListener('click', async () => {
-    if (!sequenceItems.length || timeRangeSequenceRunning) {
-      return;
+ startSequenceButton.addEventListener('click', () => {
+  if (!tachatzCopierExtensionReady) {
+    sequenceStatus.textContent =
+      'תוסף ההעתקה לא נמצא. יש לוודא שהוא מופעל ולרענן את הדף.';
+    return;
+  }
+
+  if (!sequenceItems.length) return;
+
+  startSequenceButton.disabled = true;
+  stopSequenceButton.disabled = false;
+
+  clearExtensionSequenceHighlights();
+
+  sendToTachatzCopierExtension(
+    'START_TIME_SEQUENCE',
+    {
+      items: sequenceItems.map(item => item.text),
+      intervalMs: 3000
     }
+  );
 
-    timeRangeSequenceRunning = true;
-    startSequenceButton.disabled = true;
-    stopSequenceButton.disabled = false;
+  if (extensionStatusTimer) {
+    clearInterval(extensionStatusTimer);
+  }
 
-    let currentIndex = 0;
+  extensionStatusTimer = setInterval(() => {
+    sendToTachatzCopierExtension(
+      'GET_TIME_SEQUENCE_STATUS'
+    );
+  }, 500);
+});
 
-    async function copyNextItem() {
-      if (!timeRangeSequenceRunning) {
-        return;
-      }
-
-      if (currentIndex >= sequenceItems.length) {
-        stopSequence(
-          `ההעתקה הסתיימה. הועתקו ${sequenceItems.length} ערכים.`
-        );
-        return;
-      }
-
-      clearSequenceHighlights();
-
-      const item = sequenceItems[currentIndex];
-
-      item.group.style.outline =
-        '2px solid var(--accent, #2563eb)';
-      item.group.style.background = '#eff6ff';
-      item.group.style.borderRadius = '8px';
-
-      sequenceStatus.textContent =
-        `הועתק ${currentIndex + 1} מתוך ` +
-        `${sequenceItems.length}: ${item.label} ${item.text}`;
-
-      try {
-        await copyTextValue(item.text);
-      } catch (error) {
-        stopSequence(
-          `ההעתקה נעצרה: ${error.message}`
-        );
-        return;
-      }
-
-      currentIndex += 1;
-
-      timeRangeSequenceTimer = setTimeout(
-        copyNextItem,
-        3000
-      );
-    }
-
-    await copyNextItem();
-  });
-
-  stopSequenceButton.addEventListener('click', () => {
-    stopSequence();
-  });
+stopSequenceButton.addEventListener('click', () => {
+  sendToTachatzCopierExtension(
+    'STOP_TIME_SEQUENCE'
+  );
+});
 }
+  
 function formatCopyDate(date) {
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -3224,6 +3208,181 @@ function exportImpactCsv() {
 }
 
 
+let tachatzCopierExtensionReady = false;
+let extensionSequenceItems = [];
+let extensionStatusTimer = null;
+
+function sendToTachatzCopierExtension(type, payload = {}) {
+  window.postMessage(
+    {
+      source: 'tachatz-copilot-page',
+      type,
+      ...payload
+    },
+    window.location.origin
+  );
+}
+
+function clearExtensionSequenceHighlights() {
+  extensionSequenceItems.forEach(item => {
+    item.group.style.outline = '';
+    item.group.style.background = '';
+    item.group.style.borderRadius = '';
+  });
+}
+
+function updateExtensionSequenceHighlight(currentIndex) {
+  clearExtensionSequenceHighlights();
+
+  const copiedIndex = Number(currentIndex) - 1;
+  const item = extensionSequenceItems[copiedIndex];
+
+  if (!item) return;
+
+  item.group.style.outline =
+    '2px solid var(--accent, #2563eb)';
+  item.group.style.background = '#eff6ff';
+  item.group.style.borderRadius = '8px';
+}
+
+window.addEventListener('message', event => {
+  if (event.source !== window) return;
+  if (event.origin !== window.location.origin) return;
+
+  const message = event.data;
+
+  if (
+    !message ||
+    message.source !== 'tachatz-copilot-extension'
+  ) {
+    return;
+  }
+
+  const statusElement =
+    document.getElementById('timeSequenceStatus');
+
+  const startButton =
+    document.getElementById('startTimeSequenceButton');
+
+  const stopButton =
+    document.getElementById('stopTimeSequenceButton');
+
+  if (message.type === 'EXTENSION_READY') {
+    tachatzCopierExtensionReady = true;
+
+    if (statusElement) {
+      statusElement.textContent =
+        'תוסף ההעתקה מחובר.';
+    }
+
+    return;
+  }
+
+  if (message.type === 'SEQUENCE_STARTED') {
+    if (!message.ok) {
+      if (statusElement) {
+        statusElement.textContent =
+          `לא ניתן להתחיל: ${message.error || 'שגיאה לא ידועה'}`;
+      }
+
+      if (startButton) startButton.disabled = false;
+      if (stopButton) stopButton.disabled = true;
+      return;
+    }
+
+    if (statusElement) {
+      statusElement.textContent =
+        `ההעתקה הרציפה התחילה. ${message.total} ערכים.`;
+    }
+
+    return;
+  }
+
+  if (message.type === 'SEQUENCE_STATUS') {
+    if (!message.ok) return;
+
+    updateExtensionSequenceHighlight(
+      message.currentIndex
+    );
+
+    if (message.lastError) {
+      if (statusElement) {
+        statusElement.textContent =
+          `ההעתקה נעצרה: ${message.lastError}`;
+      }
+
+      if (startButton) startButton.disabled = false;
+      if (stopButton) stopButton.disabled = true;
+
+      if (extensionStatusTimer) {
+        clearInterval(extensionStatusTimer);
+        extensionStatusTimer = null;
+      }
+
+      return;
+    }
+
+    if (message.running) {
+      if (statusElement) {
+        statusElement.textContent =
+          `הועתקו ${message.currentIndex} מתוך ${message.total}: ` +
+          `${message.lastCopied || ''}`;
+      }
+
+      return;
+    }
+
+    if (
+      message.total > 0 &&
+      message.currentIndex >= message.total
+    ) {
+      if (statusElement) {
+        statusElement.textContent =
+          `ההעתקה הסתיימה. הועתקו ${message.total} ערכים.`;
+      }
+
+      if (startButton) startButton.disabled = false;
+      if (stopButton) stopButton.disabled = true;
+
+      if (extensionStatusTimer) {
+        clearInterval(extensionStatusTimer);
+        extensionStatusTimer = null;
+      }
+    }
+
+    return;
+  }
+
+  if (message.type === 'SEQUENCE_STOPPED') {
+    if (statusElement) {
+      statusElement.textContent =
+        'ההעתקה הרציפה נעצרה.';
+    }
+
+    if (startButton) startButton.disabled = false;
+    if (stopButton) stopButton.disabled = true;
+
+    clearExtensionSequenceHighlights();
+
+    if (extensionStatusTimer) {
+      clearInterval(extensionStatusTimer);
+      extensionStatusTimer = null;
+    }
+
+    return;
+  }
+
+  if (message.type === 'EXTENSION_ERROR') {
+    if (statusElement) {
+      statusElement.textContent =
+        `שגיאת תוסף: ${message.error || 'שגיאה לא ידועה'}`;
+    }
+  }
+});
+
+sendToTachatzCopierExtension('PING_EXTENSION');
+  
+  
 function extractEventTiming(text) {
   const normalized = String(text || '')
     .replace(/\u00a0/g, ' ')
