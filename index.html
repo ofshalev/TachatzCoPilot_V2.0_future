@@ -2793,46 +2793,196 @@ function renderImpactTable(results) {
 }
 
 
+let timeRangeSequenceTimer = null;
+let timeRangeSequenceRunning = false;
+
+  async function copyTextValue(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    const temp = document.createElement('textarea');
+
+    temp.value = text;
+    temp.style.position = 'fixed';
+    temp.style.opacity = '0';
+
+    document.body.appendChild(temp);
+    temp.focus();
+    temp.select();
+
+    const copied = document.execCommand('copy');
+    temp.remove();
+
+    if (!copied) {
+      throw new Error('הדפדפן חסם את פעולת ההעתקה');
+    }
+
+    return true;
+  }
+}
+  
 function renderEventTimeRanges() {
   const list = document.getElementById('eventTimeRangesList');
   list.innerHTML = '';
+
+  if (timeRangeSequenceTimer) {
+    clearTimeout(timeRangeSequenceTimer);
+    timeRangeSequenceTimer = null;
+  }
+
+  timeRangeSequenceRunning = false;
 
   const title = state.eventTitle || '';
   const timing = state.eventTiming || '';
 
   const rangeDateMatch = title.match(
-  /(\d{1,2})-(\d{1,2})\.(\d{1,2})\.(\d{4})/
-);
+    /(\d{1,2})-(\d{1,2})\.(\d{1,2})\.(\d{4})/
+  );
 
-const singleDateMatch = title.match(
-  /(\d{1,2})\.(\d{1,2})\.(\d{4})/
-);
+  const singleDateMatch = title.match(
+    /(\d{1,2})\.(\d{1,2})\.(\d{4})/
+  );
 
-const timeMatch = timing.match(
-  /מ-(\d{2}:\d{2})\s+עד\s+(\d{2}:\d{2})/
-);
+  const timeMatch = timing.match(
+    /מ-(\d{2}:\d{2})\s+עד\s+(\d{2}:\d{2})/
+  );
 
-if ((!rangeDateMatch && !singleDateMatch) || !timeMatch) return;
+  if ((!rangeDateMatch && !singleDateMatch) || !timeMatch) {
+    return;
+  }
 
-let startDay;
-let endDay;
-let month;
-let year;
+  let startDay;
+  let endDay;
+  let month;
+  let year;
 
-if (rangeDateMatch) {
-  startDay = Number(rangeDateMatch[1]);
-  endDay = Number(rangeDateMatch[2]);
-  month = Number(rangeDateMatch[3]);
-  year = Number(rangeDateMatch[4]);
-} else {
-  startDay = Number(singleDateMatch[1]);
-  endDay = startDay;
-  month = Number(singleDateMatch[2]);
-  year = Number(singleDateMatch[3]);
-}
+  if (rangeDateMatch) {
+    startDay = Number(rangeDateMatch[1]);
+    endDay = Number(rangeDateMatch[2]);
+    month = Number(rangeDateMatch[3]);
+    year = Number(rangeDateMatch[4]);
+  } else {
+    startDay = Number(singleDateMatch[1]);
+    endDay = startDay;
+    month = Number(singleDateMatch[2]);
+    year = Number(singleDateMatch[3]);
+  }
 
   const startTime = timeMatch[1];
   const endTime = timeMatch[2];
+
+  const sequenceItems = [];
+
+  const controls = document.createElement('div');
+
+  controls.style.display = 'flex';
+  controls.style.alignItems = 'center';
+  controls.style.gap = '10px';
+  controls.style.flexWrap = 'wrap';
+  controls.style.marginBottom = '16px';
+  controls.style.direction = 'rtl';
+
+  const startSequenceButton = document.createElement('button');
+  startSequenceButton.type = 'button';
+  startSequenceButton.textContent = 'התחל העתקה רציפה';
+
+  const stopSequenceButton = document.createElement('button');
+  stopSequenceButton.type = 'button';
+  stopSequenceButton.className = 'secondary';
+  stopSequenceButton.textContent = 'עצור';
+  stopSequenceButton.disabled = true;
+
+  const sequenceStatus = document.createElement('div');
+  sequenceStatus.style.fontSize = '14px';
+  sequenceStatus.style.color = 'var(--muted)';
+  sequenceStatus.setAttribute('aria-live', 'polite');
+
+  controls.appendChild(startSequenceButton);
+  controls.appendChild(stopSequenceButton);
+  controls.appendChild(sequenceStatus);
+
+  list.appendChild(controls);
+
+  function clearSequenceHighlights() {
+    sequenceItems.forEach(item => {
+      item.group.style.outline = '';
+      item.group.style.background = '';
+      item.group.style.borderRadius = '';
+    });
+  }
+
+  function stopSequence(message = 'ההעתקה הרציפה נעצרה.') {
+    timeRangeSequenceRunning = false;
+
+    if (timeRangeSequenceTimer) {
+      clearTimeout(timeRangeSequenceTimer);
+      timeRangeSequenceTimer = null;
+    }
+
+    clearSequenceHighlights();
+
+    startSequenceButton.disabled = false;
+    stopSequenceButton.disabled = true;
+    sequenceStatus.textContent = message;
+  }
+
+  function createCopyField(label, text) {
+    const group = document.createElement('div');
+
+    group.style.display = 'flex';
+    group.style.alignItems = 'center';
+    group.style.gap = '6px';
+    group.style.padding = '3px';
+
+    const labelElement = document.createElement('span');
+    labelElement.textContent = label;
+    labelElement.style.fontWeight = '400';
+    labelElement.style.color = 'var(--muted)';
+
+    const value = document.createElement('span');
+    value.textContent = text;
+    value.style.direction = 'ltr';
+    value.style.fontFamily = 'Consolas, monospace';
+    value.style.fontSize = '15px';
+    value.style.fontWeight = '700';
+    value.style.padding = '8px 10px';
+    value.style.border = '1px solid var(--line)';
+    value.style.borderRadius = '8px';
+    value.style.background = '#f9fafb';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'העתק';
+
+    button.addEventListener('click', async () => {
+      try {
+        await copyTextValue(text);
+
+        const originalText = button.textContent;
+        button.textContent = 'הועתק';
+
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 1200);
+      } catch (error) {
+        sequenceStatus.textContent =
+          `ההעתקה נכשלה: ${error.message}`;
+      }
+    });
+
+    group.appendChild(labelElement);
+    group.appendChild(value);
+    group.appendChild(button);
+
+    sequenceItems.push({
+      label,
+      text,
+      group
+    });
+
+    return group;
+  }
 
   for (let day = startDay; day <= endDay; day++) {
     const startDate = new Date(year, month - 1, day);
@@ -2843,90 +2993,95 @@ if (rangeDateMatch) {
     }
 
     const startDateText = formatCopyDate(startDate);
-const endDateText = formatCopyDate(endDate);
+    const endDateText = formatCopyDate(endDate);
 
-const row = document.createElement('div');
+    const startDateTime =
+      `${startDateText} ${startTime}`;
 
-row.style.display = 'flex';
-row.style.alignItems = 'center';
-row.style.justifyContent = 'flex-start';
-row.style.gap = '14px';
-row.style.marginBottom = '10px';
-row.style.direction = 'rtl';
-row.style.flexWrap = 'wrap';
+    const endDateTime =
+      `${endDateText} ${endTime}`;
 
-function createCopyField(label, text) {
-  const group = document.createElement('div');
+    const row = document.createElement('div');
 
-  group.style.display = 'flex';
-  group.style.alignItems = 'center';
-  group.style.gap = '6px';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.justifyContent = 'flex-start';
+    row.style.gap = '14px';
+    row.style.marginBottom = '10px';
+    row.style.direction = 'rtl';
+    row.style.flexWrap = 'wrap';
 
-  const labelElement = document.createElement('span');
-  labelElement.textContent = label;
-  labelElement.style.fontWeight = '400';
-  labelElement.style.color = 'var(--muted)';
+    row.appendChild(
+      createCopyField('התחלה:', startDateTime)
+    );
 
-  const value = document.createElement('span');
-  value.textContent = text;
-  value.style.direction = 'ltr';
-  value.style.fontFamily = 'Consolas, monospace';
-  value.style.fontSize = '15px';
-  value.style.fontWeight = '700';
-  value.style.padding = '8px 10px';
-  value.style.border = '1px solid var(--line)';
-  value.style.borderRadius = '8px';
-  value.style.background = '#f9fafb';
+    row.appendChild(
+      createCopyField('סיום:', endDateTime)
+    );
 
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = 'העתק';
+    list.appendChild(row);
+  }
 
-  button.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      const temp = document.createElement('textarea');
-      temp.value = text;
-      document.body.appendChild(temp);
-      temp.select();
-      document.execCommand('copy');
-      temp.remove();
+  startSequenceButton.addEventListener('click', async () => {
+    if (!sequenceItems.length || timeRangeSequenceRunning) {
+      return;
     }
 
-    const originalText = button.textContent;
-    button.textContent = 'הועתק';
+    timeRangeSequenceRunning = true;
+    startSequenceButton.disabled = true;
+    stopSequenceButton.disabled = false;
 
-    setTimeout(() => {
-      button.textContent = originalText;
-    }, 1200);
+    let currentIndex = 0;
+
+    async function copyNextItem() {
+      if (!timeRangeSequenceRunning) {
+        return;
+      }
+
+      if (currentIndex >= sequenceItems.length) {
+        stopSequence(
+          `ההעתקה הסתיימה. הועתקו ${sequenceItems.length} ערכים.`
+        );
+        return;
+      }
+
+      clearSequenceHighlights();
+
+      const item = sequenceItems[currentIndex];
+
+      item.group.style.outline =
+        '2px solid var(--accent, #2563eb)';
+      item.group.style.background = '#eff6ff';
+      item.group.style.borderRadius = '8px';
+
+      sequenceStatus.textContent =
+        `הועתק ${currentIndex + 1} מתוך ` +
+        `${sequenceItems.length}: ${item.label} ${item.text}`;
+
+      try {
+        await copyTextValue(item.text);
+      } catch (error) {
+        stopSequence(
+          `ההעתקה נעצרה: ${error.message}`
+        );
+        return;
+      }
+
+      currentIndex += 1;
+
+      timeRangeSequenceTimer = setTimeout(
+        copyNextItem,
+        3000
+      );
+    }
+
+    await copyNextItem();
   });
 
-  group.appendChild(labelElement);
-  group.appendChild(value);
-  group.appendChild(button);
-
-  return group;
+  stopSequenceButton.addEventListener('click', () => {
+    stopSequence();
+  });
 }
-
-const startDateTime =
-  `${startDateText} ${startTime}`;
-
-const endDateTime =
-  `${endDateText} ${endTime}`;
-
-row.appendChild(
-  createCopyField('התחלה:', startDateTime)
-);
-
-row.appendChild(
-  createCopyField('סיום:', endDateTime)
-);
-
-list.appendChild(row);
-  }
-}
-
 function formatCopyDate(date) {
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
