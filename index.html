@@ -2559,6 +2559,55 @@ function renderImpactSummary(results) {
 
     card.appendChild(grid);
 
+    const sendRow = document.createElement('div');
+sendRow.className = 'firebase-send-row';
+
+const sendButton = document.createElement('button');
+sendButton.type = 'button';
+sendButton.className = 'firebase-send-button';
+sendButton.textContent = 'שלח למחשב המרוחק';
+
+const copyLinkButton = document.createElement('button');
+copyLinkButton.type = 'button';
+copyLinkButton.className = 'secondary';
+copyLinkButton.textContent = 'העתק קישור למחשב המרוחק';
+
+const transferStatus = document.createElement('div');
+transferStatus.className = 'firebase-transfer-status';
+
+sendButton.addEventListener('click', () => {
+  const stopCodes = group.stops.map(
+    result => result.stop_code
+  );
+
+  const groupTitle =
+    group.stops.length === 1
+      ? `שילוט – ${group.stops[0].stop_code}`
+      : `שילוט – הודעה משותפת ל-${group.stops.length} תחנות`;
+
+  sendStopCodesToRemote({
+    stopCodes,
+    sourceType: 'שילוט',
+    messageTitle:
+      `${groupTitle} – ${state.eventTitle || 'ללא כותרת'}`,
+    statusElement: transferStatus,
+    button: sendButton
+  });
+});
+
+copyLinkButton.addEventListener('click', () => {
+  copyTransferPageLink(
+    copyLinkButton,
+    transferStatus
+  );
+});
+
+sendRow.appendChild(sendButton);
+sendRow.appendChild(copyLinkButton);
+
+card.appendChild(sendRow);
+card.appendChild(transferStatus);
+    
     if (!group.validation.valid) {
       const validationMessage =
         document.createElement('div');
@@ -2580,6 +2629,141 @@ function renderImpactSummary(results) {
   });
 }
 
+const FIREBASE_DATABASE_URL =
+  'https://tachatz-copilot-default-rtdb.europe-west1.firebasedatabase.app/';
+
+const FIREBASE_RECORD_PATH =
+  'tachatz-transfer/latest';
+
+const TRANSFER_PAGE_URL =
+  'https://ofshalev.github.io/TachatzCoPilot_V2.0_realtime/transfer.html';
+
+function firebaseTransferEndpoint() {
+  return FIREBASE_DATABASE_URL.replace(/\/+$/, '') +
+    '/' + FIREBASE_RECORD_PATH + '.json';
+}
+
+function setFirebaseTransferStatus(element, message, type = '') {
+  if (!element) return;
+
+  element.textContent = message || '';
+  element.className =
+    'firebase-transfer-status' + (type ? ` ${type}` : '');
+}
+
+
+  async function sendStopCodesToRemote({
+  stopCodes,
+  sourceType,
+  messageTitle,
+  statusElement,
+  button
+}) {
+  const codes = [...new Set(
+    (stopCodes || [])
+      .map(code => String(code || '').trim())
+      .filter(Boolean)
+  )];
+
+  if (!codes.length) {
+    setFirebaseTransferStatus(
+      statusElement,
+      'לא נמצאו קודי תחנות לשליחה.',
+      'error'
+    );
+    return false;
+  }
+
+  const eventTitle =
+    cleanText(document.getElementById('eventTitle').value) ||
+    state.eventTitle ||
+    'ללא כותרת';
+
+  const record = {
+    title: messageTitle || `${sourceType} – ${eventTitle}`,
+    event_title: eventTitle,
+    source_type: sourceType,
+    stop_codes: codes,
+    created_at: new Date().toISOString()
+  };
+
+  const originalText = button ? button.textContent : '';
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'שולח...';
+  }
+
+  setFirebaseTransferStatus(
+    statusElement,
+    'שולח את קודי התחנות למחשב המרוחק...',
+    'working'
+  );
+
+  try {
+    const response = await fetch(firebaseTransferEndpoint(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    setFirebaseTransferStatus(
+      statusElement,
+      `נשלחו ${codes.length} קודי תחנות בהצלחה.`,
+      'success'
+    );
+
+    return true;
+  } catch (error) {
+    setFirebaseTransferStatus(
+      statusElement,
+      `השליחה נכשלה: ${error.message}`,
+      'error'
+    );
+    return false;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+}
+
+async function copyTransferPageLink(button, statusElement = null) {
+  try {
+    await navigator.clipboard.writeText(TRANSFER_PAGE_URL);
+  } catch (error) {
+    const temp = document.createElement('textarea');
+    temp.value = TRANSFER_PAGE_URL;
+    temp.style.position = 'fixed';
+    temp.style.opacity = '0';
+    document.body.appendChild(temp);
+    temp.focus();
+    temp.select();
+    document.execCommand('copy');
+    temp.remove();
+  }
+
+  const originalText = button.textContent;
+  button.textContent = 'הקישור הועתק';
+
+  if (statusElement) {
+    setFirebaseTransferStatus(
+      statusElement,
+      'הקישור לעמוד המרוחק הועתק.',
+      'success'
+    );
+  }
+
+  setTimeout(() => {
+    button.textContent = originalText;
+  }, 1400);
+}
+  
 function renderImpactTable(results) {
   const headers = [
     ['stop_code', 'מק״ט'],
