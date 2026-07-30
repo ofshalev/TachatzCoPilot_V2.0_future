@@ -159,6 +159,104 @@
   border-radius: 8px;
   background: #f7f9fc;
 }
+
+
+    .signage-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.signage-stop-card {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.signage-stop-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.signage-grouped-stops {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 18px;
+  direction: rtl;
+  text-align: right;
+}
+
+.signage-grouped-stop-item {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.signage-message-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 240px);
+  justify-content: center;
+  gap: 16px;
+  direction: rtl;
+}
+
+.signage-version {
+  min-width: 0;
+}
+
+.signage-box {
+  width: 100%;
+  min-height: 138px;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.65;
+  overflow: hidden;
+}
+
+.signage-box.right-version {
+  direction: rtl;
+  text-align: right;
+}
+
+.signage-box.left-version {
+  text-align: left;
+}
+
+.signage-copy-button {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.signage-validation {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.signage-validation.valid {
+  color: var(--ok);
+}
+
+.signage-validation.invalid {
+  color: var(--bad);
+  font-weight: 700;
+}
     
     @media (max-width:900px) { .impact-grid, .impact-summary, .stats { grid-template-columns:1fr; } }
   </style>
