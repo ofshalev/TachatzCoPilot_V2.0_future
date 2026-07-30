@@ -319,7 +319,15 @@
 </div>
 </div>
 
+<div style="margin-top:28px;">
+  <h3 style="margin:0 0 10px;">הודעות לשילוט</h3>
 
+  <div id="signageMessagesList">
+    <div class="hint">
+      הודעות שילוט יופקו לאחר ניתוח התחנות.
+    </div>
+  </div>
+</div>
 
   </section>
 <section id="rawSection" class="card" style="display:none">
@@ -2154,6 +2162,140 @@ function buildSignage(rows) {
   return byStop;
 }
 
+ function buildSignageLines(
+  eventType,
+  selectedRoutes,
+  isFullCancellation,
+  alignment = 'right'
+) {
+  const detailsLine =
+    alignment === 'left'
+      ? '*8787 לפרטים'
+      : 'לפרטים 8787*';
+
+  const reasonLine =
+    `עקב ${cleanText(eventType || '')}`.trim();
+
+  const routes = sortRoutes(
+    [...new Set(
+      (selectedRoutes || [])
+        .map(String)
+        .filter(Boolean)
+    )]
+  );
+
+  if (isFullCancellation) {
+    return [reasonLine, 'תחנה זו', 'מבוטלת זמנית', detailsLine];
+  }
+
+  if (routes.length === 1) {
+    return [reasonLine, 'תחנה זו מבוטלת זמנית', `לקו ${routes[0]}`, detailsLine];
+  }
+
+  if (routes.length >= 2 && routes.length <= 4) {
+    return [reasonLine, 'תחנה זו מבוטלת זמנית', `לקווים ${routes.join(',')}`, detailsLine];
+  }
+
+  return [reasonLine, 'חלים שינויים', 'בקווי התחבורה הציבורית', detailsLine];
+} 
+
+
+function validateSignageRows(rows) {
+  const normalizedRows = Array.isArray(rows) ? rows : [];
+  const counts = normalizedRows.map(
+    row => [...String(row || '')].length
+  );
+
+  const invalidIndexes = counts
+    .map((count, index) => count > 22 ? index : -1)
+    .filter(index => index >= 0);
+
+  return {
+    valid:
+      normalizedRows.length === 4 &&
+      invalidIndexes.length === 0,
+    counts,
+    invalidIndexes
+  };
+}
+
+function createSignageVersion(rows, alignment, validation) {
+  const version = document.createElement('div');
+  version.className = 'signage-version';
+
+  
+
+  const preview = document.createElement('div');
+
+preview.className =
+  `signage-box ${alignment === 'left' ? 'left-version' : 'right-version'}`;
+
+rows.forEach((row, index) => {
+  const line = document.createElement('div');
+  line.textContent = row;
+
+  if (alignment === 'left') {
+    line.style.textAlign = 'left';
+
+    // Only the final phone-details row needs LTR character order.
+    line.style.direction =
+      index === rows.length - 1 ? 'ltr' : 'rtl';
+  } else {
+    line.style.textAlign = 'right';
+    line.style.direction = 'rtl';
+  }
+
+  preview.appendChild(line);
+});
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'signage-copy-button';
+  button.textContent = 'העתק הודעה';
+  button.disabled = !validation.valid;
+  button.addEventListener('click', () => {
+    copySignageMessage(rows, alignment, button);
+  });
+
+  
+  version.appendChild(preview);
+  
+  version.appendChild(button);
+  return version;
+}
+
+function buildSignageClipboardText(rows, alignment) {
+  const marker = alignment === 'left' ? '\u200E' : '\u200F';
+  return rows.map(row => marker + row).join('\n');
+}
+
+  
+async function copySignageMessage(rows, alignment, button) {
+  const validation = validateSignageRows(rows);
+  if (!validation.valid) return;
+
+  const text = buildSignageClipboardText(rows, alignment);
+
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    const temp = document.createElement('textarea');
+    temp.value = text;
+    temp.style.position = 'fixed';
+    temp.style.opacity = '0';
+    document.body.appendChild(temp);
+    temp.focus();
+    temp.select();
+    document.execCommand('copy');
+    temp.remove();
+  }
+
+  const originalText = button.textContent;
+  button.textContent = 'הועתק';
+  setTimeout(() => { button.textContent = originalText; }, 1200);
+}
+
+  
 function classifyImpact(gtfsRoutes, matchedRoutes, unmatchedRoutes) {
   if (!gtfsRoutes.length) return { key: 'outside', label: 'לא נמצא ב-GTFS אזורי' };
   if (!matchedRoutes.length && unmatchedRoutes.length) return { key: 'mismatch', label: 'אי התאמה מול GTFS' };
@@ -2196,6 +2338,148 @@ function renderImpactSummary(results) {
     <div class="stat"><strong>${counts.partial}</strong>פגיעה חלקית/משמעותית</div>
     <div class="stat"><strong>${counts.mismatch}</strong>אי התאמות</div>
     <div class="stat"><strong>${counts.signed}</strong>עם שילוט</div>`;
+}
+
+  function renderSignageMessages() {
+  const container = document.getElementById('signageMessagesList');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  const selectedResults = lastImpactResults.filter(
+    result =>
+      Number(result.affected_count || 0) > 0 &&
+      result.has_sign === 'כן'
+  );
+
+  if (!selectedResults.length) {
+    container.innerHTML =
+      '<div class="hint">לא נמצאו תחנות מושפעות עם שילוט קיים.</div>';
+    return;
+  }
+
+  const eventType =
+    cleanText(
+      String(state.eventTitle || '').split(',')[1] || 'עבודות'
+    );
+
+  const groups = new Map();
+
+  selectedResults.forEach(result => {
+    const selectedRoutes = String(result.matched_routes || '')
+      .split(',')
+      .map(route => route.trim())
+      .filter(Boolean);
+
+    const isFullCancellation =
+      result.impact_key === 'full';
+
+    const rightRows = buildSignageLines(
+      eventType,
+      selectedRoutes,
+      isFullCancellation,
+      'right'
+    );
+
+    const leftRows = buildSignageLines(
+      eventType,
+      selectedRoutes,
+      isFullCancellation,
+      'left'
+    );
+
+    const key = rightRows.join('\n');
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        rightRows,
+        leftRows,
+        validation: validateSignageRows(rightRows),
+        stops: []
+      });
+    }
+
+    groups.get(key).stops.push(result);
+  });
+
+  [...groups.values()].forEach(group => {
+    const card = document.createElement('div');
+    card.className = 'signage-stop-card';
+
+    const title = document.createElement('h4');
+    title.className = 'signage-stop-title';
+
+    if (group.stops.length === 1) {
+      const result = group.stops[0];
+
+      title.textContent = result.stop_name
+        ? `${result.stop_code} – ${result.stop_name}`
+        : result.stop_code;
+    } else {
+      title.textContent =
+        `הודעה משותפת ל-${group.stops.length} תחנות`;
+    }
+
+    card.appendChild(title);
+
+    if (group.stops.length > 1) {
+      const stopList = document.createElement('div');
+      stopList.className = 'signage-grouped-stops';
+
+      group.stops.forEach(result => {
+        const item = document.createElement('div');
+        item.className = 'signage-grouped-stop-item';
+
+        item.textContent = result.stop_name
+          ? `${result.stop_code} – ${result.stop_name}`
+          : result.stop_code;
+
+        stopList.appendChild(item);
+      });
+
+      card.appendChild(stopList);
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'signage-message-grid';
+
+    grid.appendChild(
+      createSignageVersion(
+        group.rightRows,
+        'right',
+        group.validation
+      )
+    );
+
+    grid.appendChild(
+      createSignageVersion(
+        group.leftRows,
+        'left',
+        group.validation
+      )
+    );
+
+    card.appendChild(grid);
+
+    if (!group.validation.valid) {
+      const validationMessage =
+        document.createElement('div');
+
+      validationMessage.className =
+        'signage-validation invalid';
+
+      validationMessage.textContent =
+        `לא ניתן להעתיק: שורה ${
+          group.validation.invalidIndexes
+            .map(index => index + 1)
+            .join(', ')
+        } חורגת מ-22 תווים.`;
+
+      card.appendChild(validationMessage);
+    }
+
+    container.appendChild(card);
+  });
 }
 
 function renderImpactTable(results) {
@@ -2438,6 +2722,7 @@ const signage = buildSignage(signageRows);
   lastImpactResults = results;
   renderImpactSummary(results);
   renderImpactTable(results);
+  renderSignageMessages();
 const fullyCancelledStops = results.filter(
   r => r.impact_key === 'full'
 );
