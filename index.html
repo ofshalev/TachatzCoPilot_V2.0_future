@@ -2755,11 +2755,6 @@ function setFirebaseTransferStatus(element, message, type = '') {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    setFirebaseTransferStatus(
-      statusElement,
-      `נשלחו ${codes.length} קודי תחנות בהצלחה.`,
-      'success'
-    );
 
     return true;
   } catch (error) {
