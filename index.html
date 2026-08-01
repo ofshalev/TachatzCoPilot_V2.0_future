@@ -2731,11 +2731,8 @@ function setFirebaseTransferStatus(element, message, type = '') {
     created_at: new Date().toISOString()
   };
 
-  const originalText = button ? button.textContent : '';
-
   if (button) {
     button.disabled = true;
-    button.textContent = 'שולח...';
   }
 
   setFirebaseTransferStatus(
@@ -2772,7 +2769,6 @@ function setFirebaseTransferStatus(element, message, type = '') {
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = originalText;
     }
   }
 }
