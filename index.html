@@ -259,6 +259,20 @@
 }
     
     @media (max-width:900px) { .impact-grid, .impact-summary, .stats { grid-template-columns:1fr; } }
+
+
+.no-action-message {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: right;
+}
+    
   </style>
 </head>
 <body>
@@ -2478,10 +2492,13 @@ function renderImpactSummary(results) {
   );
 
   if (!selectedResults.length) {
-    container.innerHTML =
-      '<div class="hint">לא נמצאו תחנות מושפעות עם שילוט קיים.</div>';
-    return;
-  }
+  container.innerHTML = `
+    <div class="no-action-message">
+      אין שילוט באירוע זה
+    </div>
+  `;
+  return;
+}
 
   const eventType =
     cleanText(
@@ -3183,8 +3200,27 @@ const appsMessageOutput =
   document.getElementById('appsMessageOutput');
 
 if (fullyCancelledStops.length === 0) {
-  appsMessageOutput.value = '';
+  appsMessageOutput.value =
+    'אין עדכון מפתחים באירוע זה';
+
+  developerStopCodes = [];
+
+  document.getElementById(
+  'sendDeveloperStopsBtn'
+).disabled = true;
+
+document.getElementById(
+  'copyDeveloperTransferLinkBtn'
+).disabled = true;
+
 } else {
+  document.getElementById(
+  'sendDeveloperStopsBtn'
+).disabled = false;
+
+document.getElementById(
+  'copyDeveloperTransferLinkBtn'
+).disabled = false;
   const stopLines = fullyCancelledStops
     .map(r => `${r.stop_code} - ${r.stop_name}`)
     .join('\n');
@@ -3212,11 +3248,7 @@ const appsHeader = isSingleStop
   appsMessageOutput.value =
     appsHeader + '\n' + stopLines;
 
-  // Create a TXT file containing the fully cancelled stop codes.
-  downloadStopCodesFile(
-    fullyCancelledStops.map(stop => stop.stop_code),
-    'קודי_תחנות_מפתחים.txt'
-  );
+  
 }
 
 renderEventTimeRanges();
@@ -3710,37 +3742,6 @@ function getEventDistrict(primaryLocation) {
     ? 'מחוז תל אביב'
     : 'מחוז מרכז';
 }
-  
-function downloadStopCodesFile(stopCodes, fileName = 'stop_codes.txt') {
-  const cleanCodes = [...new Set(
-    (stopCodes || [])
-      .map(code => String(code || '').trim())
-      .filter(Boolean)
-  )];
-
-  if (!cleanCodes.length) {
-    console.warn('לא נמצאו קודי תחנות ליצירת הקובץ');
-    return;
-  }
-
-  const content = cleanCodes.join('\r\n');
-  const blob = new Blob(['\uFEFF' + content], {
-    type: 'text/plain;charset=utf-8'
-  });
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-
-  link.href = url;
-  link.download = fileName;
-
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 
 
 document.getElementById('impactBtn').addEventListener('click', async () => {
