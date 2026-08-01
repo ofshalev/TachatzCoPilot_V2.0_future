@@ -2755,6 +2755,11 @@ function setFirebaseTransferStatus(element, message, type = '') {
       throw new Error(`HTTP ${response.status}`);
     }
 
+    setFirebaseTransferStatus(
+  statusElement,
+  '',
+  ''
+);
 
     return true;
   } catch (error) {
