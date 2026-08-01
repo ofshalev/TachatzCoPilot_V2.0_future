@@ -409,6 +409,32 @@
       line-height:1.6;
     "
   ></textarea>
+
+    <div
+  class="row"
+  style="margin-top:12px;"
+>
+  <button
+    id="sendDeveloperStopsBtn"
+    type="button"
+  >
+    שלח למחשב המרוחק
+  </button>
+
+  <button
+    id="copyDeveloperTransferLinkBtn"
+    type="button"
+    class="secondary"
+  >
+    העתק קישור למחשב המרוחק
+  </button>
+</div>
+
+<div
+  id="developerTransferStatus"
+  class="firebase-transfer-status"
+></div>
+    
   <div id="eventTimeRanges" style="margin-top:14px;">
   <h3 style="margin:0 0 10px;">טווחי זמן להעתקה</h3>
 
@@ -2151,6 +2177,7 @@ function exportCsv() {
 
 
 let lastImpactResults = [];
+let developerStopCodes = [];
 
 function normalizeHeader(h) {
   return String(h || '').trim().replace(/^\uFEFF/, '').toLowerCase();
@@ -3147,6 +3174,10 @@ const signage = buildSignage(signageRows);
 const fullyCancelledStops = results.filter(
   r => r.impact_key === 'full'
 );
+  developerStopCodes =
+  fullyCancelledStops.map(
+    stop => stop.stop_code
+  );
 
 const appsMessageOutput =
   document.getElementById('appsMessageOutput');
@@ -3859,6 +3890,32 @@ document
     }
   });
 
+document
+  .getElementById('sendDeveloperStopsBtn')
+  .addEventListener('click', async function () {
+    await sendStopCodesToRemote({
+      stopCodes: developerStopCodes,
+      sourceType: 'מפתחים',
+      messageTitle:
+        `מפתחים – ${state.eventTitle || 'ללא כותרת'}`,
+      statusElement: document.getElementById(
+        'developerTransferStatus'
+      ),
+      button: this
+    });
+  });
+
+document
+  .getElementById('copyDeveloperTransferLinkBtn')
+  .addEventListener('click', function () {
+    copyTransferPageLink(
+      document.getElementById(
+        'developerTransferStatus'
+      )
+    );
+  });
+
+  
 document
   .getElementById('copyEventDescriptionBtn')
   .addEventListener('click', async () => {
