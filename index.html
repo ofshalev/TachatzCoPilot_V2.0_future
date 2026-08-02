@@ -272,6 +272,17 @@
   font-weight: 700;
   text-align: right;
 }
+
+  .impact-empty-row td {
+  padding: 28px 20px;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1f2937;
+  background: #f7f9fc;
+  border: 1px solid #d7deea;
+  border-radius: 12px;
+}
     
   </style>
 </head>
@@ -2832,53 +2843,97 @@ function renderImpactTable(results) {
     ['unmatched_routes', 'לא נמצאו ב-GTFS'],
     ['impact', 'השפעה'],
     ['has_sign', 'שילוט'],
-    //['action', 'פעולה מוצעת'],
-    //['message', 'נוסח מוצע'],
     ['affected_operators', 'מפעילים'],
   ];
-  const cls = key => ({ full:'impact-full', major:'impact-major', partial:'impact-partial', mismatch:'impact-mismatch', outside:'impact-outside' }[key] || '');
-  document.querySelector('#impactTable thead').innerHTML = '<tr>' + headers.map(h => `<th>${h[1]}</th>`).join('') + '</tr>';
-  document.querySelector('#impactTable tbody').innerHTML = results.map(r => `
+
+  const table = document.getElementById('impactTable');
+  const thead = table.querySelector('thead');
+  const tbody = table.querySelector('tbody');
+
+  /*
+    A notice can explicitly state that no stops are cancelled.
+    In that case, show a clear valid-event message in place of the table.
+  */
+  if (!results.length && state.hasExplicitNoCancelledStops) {
+    table.style.display = 'table';
+    thead.innerHTML = '';
+
+    tbody.innerHTML = `
+      <tr class="impact-empty-row">
+        <td colspan="${headers.length}">
+          אירוע ללא דילוג תחנות
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+  /*
+    No results were found, but the source did not explicitly say
+    that there are no cancelled stops.
+  */
+  if (!results.length) {
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    table.style.display = 'none';
+    return;
+  }
+
+  table.style.display = 'table';
+
+  const cls = key => ({
+    full: 'impact-full',
+    major: 'impact-major',
+    partial: 'impact-partial',
+    mismatch: 'impact-mismatch',
+    outside: 'impact-outside'
+  }[key] || '');
+
+  thead.innerHTML =
+    '<tr>' +
+    headers.map(h => `<th>${h[1]}</th>`).join('') +
+    '</tr>';
+
+  tbody.innerHTML = results.map(r => `
     <tr>
       ${headers.map(([key]) => {
-        if (key === 'impact') return `<td><span class="pill ${cls(r.impact_key)}">${escapeHtml(r.impact)}</span></td>`;
-        if (['affected_routes','gtfs_routes','active_routes','unmatched_routes','affected_operators'].includes(key)) {
-          return `<td>${String(r[key] || '').split(',').map(x => x.trim()).filter(Boolean).map(x => `<span class="pill">${escapeHtml(x)}</span>`).join('')}</td>`;
+        if (key === 'impact') {
+          return `
+            <td>
+              <span class="pill ${cls(r.impact_key)}">
+                ${escapeHtml(r.impact)}
+              </span>
+            </td>
+          `;
         }
+
+        if (
+          [
+            'affected_routes',
+            'gtfs_routes',
+            'active_routes',
+            'unmatched_routes',
+            'affected_operators'
+          ].includes(key)
+        ) {
+          return `
+            <td>
+              ${String(r[key] || '')
+                .split(',')
+                .map(x => x.trim())
+                .filter(Boolean)
+                .map(x => `<span class="pill">${escapeHtml(x)}</span>`)
+                .join('')}
+            </td>
+          `;
+        }
+
         return `<td>${escapeHtml(r[key] || '')}</td>`;
       }).join('')}
-    </tr>`).join('');
-}
-
-
-let timeRangeSequenceTimer = null;
-let timeRangeSequenceRunning = false;
-
-  async function copyTextValue(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (error) {
-    const temp = document.createElement('textarea');
-
-    temp.value = text;
-    temp.style.position = 'fixed';
-    temp.style.opacity = '0';
-
-    document.body.appendChild(temp);
-    temp.focus();
-    temp.select();
-
-    const copied = document.execCommand('copy');
-    temp.remove();
-
-    if (!copied) {
-      throw new Error('הדפדפן חסם את פעולת ההעתקה');
-    }
-
-    return true;
-  }
-}
+    </tr>
+  `).join('');
+}  
   
 function renderEventTimeRanges() {
   const list = document.getElementById('eventTimeRangesList');
