@@ -2371,10 +2371,27 @@ function buildSignage(rows) {
 } 
 
 
+function sanitizeSignageRow(value) {
+  return String(value || '')
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function validateSignageRows(rows) {
-  const normalizedRows = Array.isArray(rows) ? rows : [];
+  const normalizedRows = Array.isArray(rows)
+    ? rows.map(row =>
+        String(row || '')
+          .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069\u200B-\u200D\uFEFF]/g, '')
+          .replace(/\u00A0/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      )
+    : [];
+
   const counts = normalizedRows.map(
-    row => [...String(row || '')].length
+    row => [...row].length
   );
 
   const invalidIndexes = counts
@@ -2385,6 +2402,7 @@ function validateSignageRows(rows) {
     valid:
       normalizedRows.length === 4 &&
       invalidIndexes.length === 0,
+    normalizedRows,
     counts,
     invalidIndexes
   };
