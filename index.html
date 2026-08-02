@@ -3879,17 +3879,18 @@ render();
   if (state.rows.length) {
     render();
     await runImpactAnalysis();
-  } else {
-    // Prevent the previous event's impact results from remaining visible.
+   } else {
     lastImpactResults = [];
   
     render();
   
+    // Render the empty state in the normal impact-table area.
+    renderImpactTable([]);
+  
     document.getElementById('impactStatus').textContent =
       state.hasExplicitNoCancelledStops
-        ? 'אירוע ללא דילוג תחנות'
+        ? ''
         : 'לא נמצאו תחנות מבוטלות לניתוח.';
-  }
   } catch (err) {
     state.warnings.push(`שגיאת מערכת: ${err.message}`);
     render();
