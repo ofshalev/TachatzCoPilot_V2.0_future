@@ -2222,6 +2222,9 @@ function exportCsv() {
 let lastImpactResults = [];
 let developerStopCodes = [];
 
+let timeRangeSequenceTimer = null;
+let timeRangeSequenceRunning = false;
+  
 function normalizeHeader(h) {
   return String(h || '').trim().replace(/^\uFEFF/, '').toLowerCase();
 }
