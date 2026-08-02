@@ -997,7 +997,11 @@ function extractCancelledStops(text, sourceName, operatorName) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     let routesHere = extractRoutesFromLine(line);
-
+    console.log('ROUTE DEBUG', {
+      sourceName,
+      line,
+      routesHere
+    });
 /*
   Some notices put the route numbers on the next line:
 
