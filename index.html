@@ -1001,6 +1001,7 @@ function extractCancelledStops(text, sourceName, operatorName) {
   let currentRoutes = [];
   let inCancelled = false;
   let context = '';
+  let hasExplicitNoCancelledStops = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -1029,6 +1030,7 @@ if (
     }
 
     if (isNoCancelledLine(line)) {
+      hasExplicitNoCancelledStops = true;
       inCancelled = false;
       continue;
     }
@@ -1094,8 +1096,17 @@ if (stops.length && currentRoutes.length) {
     }
   }
 
-  if (!rows.length) warnings.push(`${sourceName}: לא זוהו תחנות מבוטלות. ייתכן שהמסמך דורש בדיקה ידנית או שהמבנה שונה.`);
-  return { rows, warnings };
+  if (!rows.length && !hasExplicitNoCancelledStops) {
+    warnings.push(
+      `${sourceName}: לא זוהו תחנות מבוטלות. ייתכן שהמסמך דורש בדיקה ידנית או שהמבנה שונה.`
+    );
+  }
+  
+  return {
+    rows,
+    warnings,
+    hasExplicitNoCancelledStops
+  };
 }
 
 async function readFileAsText(file) {
@@ -3756,8 +3767,9 @@ document.getElementById('impactBtn').addEventListener('click', async () => {
   state.warnings = [];
   state.raw = '';
   state.eventTitle = '';
-state.eventTiming = '';
-lastImpactResults = [];
+  state.eventTiming = '';
+  lastImpactResults = [];
+  state.hasExplicitNoCancelledStops = false;
 
   if (!files.length) {
     state.warnings.push('לא נבחרו קבצי הודעות מפעילים.');
@@ -3783,6 +3795,9 @@ lastImpactResults = [];
         );
         const operatorName = inferOperator(file.name, text, preliminaryRoutes);
         const result = extractCancelledStops(text, file.name, operatorName);
+        state.hasExplicitNoCancelledStops =
+        state.hasExplicitNoCancelledStops ||
+        result.hasExplicitNoCancelledStops;
         state.rows.push(...result.rows);
         state.warnings.push(
           ...result.warnings.filter(w => !w.includes('לא זוהו') || result.rows.length === 0)
@@ -3805,12 +3820,21 @@ state.eventTiming = extractEventTiming(state.raw);
 updateFutureEventDistrict(eventData?.city || '');
 
 render();
-
-    if (state.rows.length) {
-      await runImpactAnalysis();
-    } else {
-      document.getElementById('impactStatus').textContent = 'לא נמצאו תחנות מבוטלות לניתוח.';
-    }
+  
+  if (state.rows.length) {
+    render();
+    await runImpactAnalysis();
+  } else {
+    // Prevent the previous event's impact results from remaining visible.
+    lastImpactResults = [];
+  
+    render();
+  
+    document.getElementById('impactStatus').textContent =
+      state.hasExplicitNoCancelledStops
+        ? 'אירוע ללא דילוג תחנות'
+        : 'לא נמצאו תחנות מבוטלות לניתוח.';
+  }
   } catch (err) {
     state.warnings.push(`שגיאת מערכת: ${err.message}`);
     render();
