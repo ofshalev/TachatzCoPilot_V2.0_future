@@ -587,7 +587,13 @@ function textItemsToLines(items) {
 
 function extractRoutesFromLine(line) {
   const raw = line || '';
-  const c = compact(raw);
+
+  const normalizedRaw = raw
+    .replace(/ק\s*ו\s*ו\s*י\s*ם/g, 'קווים')
+    .replace(/ק\s*ו\s*י\s*ם/g, 'קוים')
+    .replace(/ק\s*ו(?=\s*(?:לילה|\d|:|-))/g, 'קו');
+  
+  const c = compact(normalizedRaw);
   const routes = [];
 
   // המסלול החלופי לקו 78 / קו: 166 / קו 84 לכיוון...
@@ -597,11 +603,13 @@ function extractRoutesFromLine(line) {
 ];
   for (const re of singlePatterns) {
     let m;
-    while ((m = re.exec(raw)) !== null) routes.push(normalizeRouteToken(m[1]));
+    while ((m = re.exec(normalizedRaw)) !== null) routes.push(normalizeRouteToken(m[1]));
   }
 
   // קווים 63, 98 לכיוון... / בקוים 78,85 בשני הכיוונים
-  const listMatch = raw.match(/(?:קווים|קוים|בקווים|בקוים|הקווים|הקוים)\s*[:\-]?\s*([^\n]+)/);
+  const listMatch = normalizedRaw.match(
+    /(?:קו|קווים|קוים|בקווים|בקוים|הקווים|הקוים)\s*[:\-]?\s*([^\n]+)/
+  );
   if (listMatch) {
     const listPart = listMatch[1].split(/\b(?:לכיוון|ייסע|ייסעו|יסע|יסעו|בשני|בכיוון|מכיוון)\b/)[0];
     routes.push(...parseRouteTokens(listPart));
@@ -612,7 +620,7 @@ function extractRoutesFromLine(line) {
   // if (compactSingle) routes.push(normalizeRouteToken(compactSingle[1]));
 
   // Accept only lines that truly look like route context, not every sentence containing road numbers.
-  const looksLikeRouteContext = /קו|קווים|קוים|המסלול\s+החלופי/.test(raw) || /קו|קווים|קוים|המסלולהחלופי/.test(c);
+  const looksLikeRouteContext = /קו|קווים|קוים|המסלול\s+החלופי/.test(normalizedRaw) || /קו|קווים|קוים|המסלולהחלופי/.test(c);
   return looksLikeRouteContext ? sortRoutes(routes) : [];
 }
 
