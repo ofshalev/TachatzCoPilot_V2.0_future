@@ -283,6 +283,26 @@
   border: 1px solid #d7deea;
   border-radius: 12px;
 }
+
+    .stop-code-toggle {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #1f2937;
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stop-code-toggle:hover {
+  background: #eef2ff;
+}
+
+.stop-code-toggle.selected {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
     
   </style>
 </head>
@@ -2221,6 +2241,7 @@ function exportCsv() {
 
 let lastImpactResults = [];
 let developerStopCodes = [];
+let manuallyFullCancelledStops = new Set();
 
 let timeRangeSequenceTimer = null;
 let timeRangeSequenceRunning = false;
@@ -2871,10 +2892,6 @@ function renderImpactTable(results) {
   const thead = table.querySelector('thead');
   const tbody = table.querySelector('tbody');
 
-  /*
-    A notice can explicitly state that no stops are cancelled.
-    In that case, show a clear valid-event message in place of the table.
-  */
   if (!results.length && state.hasExplicitNoCancelledStops) {
     table.style.display = 'table';
     thead.innerHTML = '';
@@ -2890,10 +2907,6 @@ function renderImpactTable(results) {
     return;
   }
 
-  /*
-    No results were found, but the source did not explicitly say
-    that there are no cancelled stops.
-  */
   if (!results.length) {
     thead.innerHTML = '';
     tbody.innerHTML = '';
@@ -2929,6 +2942,23 @@ function renderImpactTable(results) {
           `;
         }
 
+        if (key === 'stop_code') {
+          const manuallySelected =
+            manuallyFullCancelledStops.has(r.stop_code);
+
+          return `
+            <td>
+              <button
+                type="button"
+                class="stop-code-toggle ${manuallySelected ? 'selected' : ''}"
+                data-stop-code="${escapeHtml(r.stop_code)}"
+              >
+                ${escapeHtml(r.stop_code)}
+              </button>
+            </td>
+          `;
+        }
+
         if (
           [
             'affected_routes',
@@ -2954,7 +2984,25 @@ function renderImpactTable(results) {
       }).join('')}
     </tr>
   `).join('');
-}  
+
+  tbody
+    .querySelectorAll('.stop-code-toggle')
+    .forEach(button => {
+      button.addEventListener('click', () => {
+        const stopCode = button.dataset.stopCode;
+
+        if (manuallyFullCancelledStops.has(stopCode)) {
+          manuallyFullCancelledStops.delete(stopCode);
+        } else {
+          manuallyFullCancelledStops.add(stopCode);
+        }
+
+        renderImpactTable(lastImpactResults);
+        updateDeveloperStopsMessage();
+        renderSignageMessages();
+      });
+    });
+}
   
 function renderEventTimeRanges() {
   const list = document.getElementById('eventTimeRangesList');
@@ -3208,6 +3256,73 @@ function formatCopyDate(date) {
   return `${day}/${month}/${year}`;
 }
 
+        function updateDeveloperStopsMessage() {
+  const fullyCancelledStops = lastImpactResults.filter(
+    r =>
+      r.impact_key === 'full' ||
+      manuallyFullCancelledStops.has(r.stop_code)
+  );
+
+  developerStopCodes = fullyCancelledStops.map(
+    stop => stop.stop_code
+  );
+
+  const appsMessageOutput =
+    document.getElementById('appsMessageOutput');
+
+  if (fullyCancelledStops.length === 0) {
+    appsMessageOutput.value =
+      'אין עדכון מפתחים באירוע זה';
+
+    developerStopCodes = [];
+
+    document.getElementById(
+      'sendDeveloperStopsBtn'
+    ).disabled = true;
+
+    document.getElementById(
+      'copyDeveloperTransferLinkBtn'
+    ).disabled = true;
+
+    return;
+  }
+
+  document.getElementById(
+    'sendDeveloperStopsBtn'
+  ).disabled = false;
+
+  document.getElementById(
+    'copyDeveloperTransferLinkBtn'
+  ).disabled = false;
+
+  const stopLines = fullyCancelledStops
+    .map(r => `${r.stop_code} - ${r.stop_name}`)
+    .join('\n');
+
+  const isSingleStop =
+    fullyCancelledStops.length === 1;
+
+  const messageTiming = state.eventTiming
+    ? state.eventTiming.replace(/^מדי לילה\s+/, '')
+    : '';
+
+  const overnightSuffix =
+    messageTiming &&
+    /מ-(\d{2}:\d{2})\s+עד\s+(\d{2}:\d{2})/.test(messageTiming) &&
+    isOvernightRange(
+      messageTiming.match(/מ-(\d{2}:\d{2})/)[1],
+      messageTiming.match(/עד\s+(\d{2}:\d{2})/)[1]
+    )
+      ? ' למחרת'
+      : '';
+
+  const appsHeader = isSingleStop
+    ? `עקב עבודות התחנה הבאה מבוטלת ${messageTiming}${overnightSuffix}:`
+    : `עקב עבודות התחנות הבאות מבוטלות ${messageTiming}${overnightSuffix}:`;
+
+  appsMessageOutput.value =
+    appsHeader + '\n' + stopLines;
+}
 
 
 async function runImpactAnalysis() {
@@ -3278,68 +3393,7 @@ const signage = buildSignage(signageRows);
   renderImpactSummary(results);
   renderImpactTable(results);
   renderSignageMessages();
-const fullyCancelledStops = results.filter(
-  r => r.impact_key === 'full'
-);
-  developerStopCodes =
-  fullyCancelledStops.map(
-    stop => stop.stop_code
-  );
-
-const appsMessageOutput =
-  document.getElementById('appsMessageOutput');
-
-if (fullyCancelledStops.length === 0) {
-  appsMessageOutput.value =
-    'אין עדכון מפתחים באירוע זה';
-
-  developerStopCodes = [];
-
-  document.getElementById(
-  'sendDeveloperStopsBtn'
-).disabled = true;
-
-document.getElementById(
-  'copyDeveloperTransferLinkBtn'
-).disabled = true;
-
-} else {
-  document.getElementById(
-  'sendDeveloperStopsBtn'
-).disabled = false;
-
-document.getElementById(
-  'copyDeveloperTransferLinkBtn'
-).disabled = false;
-  const stopLines = fullyCancelledStops
-    .map(r => `${r.stop_code} - ${r.stop_name}`)
-    .join('\n');
-
-  const isSingleStop = fullyCancelledStops.length === 1;
-
-  const messageTiming = state.eventTiming
-  ? state.eventTiming.replace(/^מדי לילה\s+/, '')
-  : '';
-
-const overnightSuffix =
-  messageTiming &&
-  /מ-(\d{2}:\d{2})\s+עד\s+(\d{2}:\d{2})/.test(messageTiming) &&
-  isOvernightRange(
-    messageTiming.match(/מ-(\d{2}:\d{2})/)[1],
-    messageTiming.match(/עד\s+(\d{2}:\d{2})/)[1]
-  )
-    ? ' למחרת'
-    : '';
-
-const appsHeader = isSingleStop
-  ? `עקב עבודות התחנה הבאה מבוטלת ${messageTiming}${overnightSuffix}:`
-  : `עקב עבודות התחנות הבאות מבוטלות ${messageTiming}${overnightSuffix}:`;
-
-  appsMessageOutput.value =
-    appsHeader + '\n' + stopLines;
-
-  
-}
+  updateDeveloperStopsMessage();
 
 renderEventTimeRanges();
 
@@ -3846,6 +3900,7 @@ document.getElementById('impactBtn').addEventListener('click', async () => {
   state.eventTiming = '';
   lastImpactResults = [];
   state.hasExplicitNoCancelledStops = false;
+  manuallyFullCancelledStops.clear();
 
   if (!files.length) {
     state.warnings.push('לא נבחרו קבצי הודעות מפעילים.');
