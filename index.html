@@ -2585,7 +2585,8 @@ function renderImpactSummary(results) {
       .filter(Boolean);
 
     const isFullCancellation =
-      result.impact_key === 'full';
+      result.impact_key === 'full' ||
+      manuallyFullCancelledStops.has(result.stop_code);
 
     const rightRows = buildSignageLines(
       eventType,
@@ -2943,14 +2944,15 @@ function renderImpactTable(results) {
         }
 
         if (key === 'stop_code') {
-          const manuallySelected =
+          const isSelected =
+            r.impact_key === 'full' ||
             manuallyFullCancelledStops.has(r.stop_code);
 
           return `
             <td>
               <button
                 type="button"
-                class="stop-code-toggle ${manuallySelected ? 'selected' : ''}"
+                class="stop-code-toggle ${isSelected ? 'selected' : ''}"
                 data-stop-code="${escapeHtml(r.stop_code)}"
               >
                 ${escapeHtml(r.stop_code)}
@@ -2991,6 +2993,14 @@ function renderImpactTable(results) {
       button.addEventListener('click', () => {
         const stopCode = button.dataset.stopCode;
 
+        const result = lastImpactResults.find(
+          item => item.stop_code === stopCode
+        );
+        
+        if (result?.impact_key === 'full') {
+          return;
+        }
+        
         if (manuallyFullCancelledStops.has(stopCode)) {
           manuallyFullCancelledStops.delete(stopCode);
         } else {
