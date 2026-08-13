@@ -1090,11 +1090,11 @@ for (let i = 0; i < lines.length; i++) {
     rows.push({
       source: sourceName,
       operator: 'אליה הנדסה',
-      route: '',
+      route: '__ALL__',
       stop_code: affectedStop,
       stop_name: '',
       context: line,
-      mode: 'elia-summary'
+      mode: 'elia-summary-all-routes'
     });
   }
 
@@ -3722,9 +3722,21 @@ const signage = buildSignage(signageRows);
   const results = [];
   for (const row of consolidated) {
     const stopCode = row.stop_code;
-    const affectedRoutes = row.routes.map(normRouteForImpact).filter(Boolean);
     const gtfs = matrix.get(stopCode);
-    const gtfsRoutes = gtfs ? [...gtfs.routes].sort((a,b) => a.localeCompare(b, 'he')) : [];
+
+    const gtfsRoutes = gtfs
+      ? [...gtfs.routes].sort((a,b) => a.localeCompare(b, 'he'))
+      : [];
+    
+    const affectsAllRoutes =
+      row.routes.includes('__ALL__');
+    
+    const affectedRoutes = affectsAllRoutes
+      ? [...gtfsRoutes]
+      : row.routes
+          .map(normRouteForImpact)
+          .filter(Boolean);
+   
     const gtfsSet = new Set(gtfsRoutes.map(normRouteForImpact));
     const matched = affectedRoutes.filter(r => gtfsSet.has(normRouteForImpact(r))).sort((a,b) => a.localeCompare(b, 'he'));
     const unmatched = affectedRoutes.filter(r => !gtfsSet.has(normRouteForImpact(r))).sort((a,b) => a.localeCompare(b, 'he'));
