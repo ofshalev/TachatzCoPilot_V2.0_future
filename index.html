@@ -2296,15 +2296,25 @@ function parseUnknownTitle(fileName, text) {
 function buildEventTitle(result) {
   if (!result) return '';
 
-  return [
+  const parts = [
     result.city,
     result.reason,
-    result.location,
-    result.dates
+    result.location
   ]
     .map(value => cleanText(value || ''))
-    .filter(Boolean)
-    .join(', ');
+    .filter(Boolean);
+
+  const dates = cleanText(result.dates || '');
+
+  if (dates) {
+    /*
+      Keep multiple numeric date ranges in chronological
+      left-to-right order inside the RTL event title.
+    */
+    parts.push(`\u2066${dates}\u2069`);
+  }
+
+  return parts.join(', ');
 }
 
 function generateEventData(fileNames, text) {
