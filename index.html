@@ -2043,28 +2043,82 @@ function extractEliaDates(text) {
 
   const dateRanges = [];
 
-  for (const line of lines) {
-    if (
-      !/\b\d{1,2}(?:\s*[-–—]\s*\d{1,2})?[.\/]\d{1,2}[.\/]\d{2,4}\b/.test(line)
-    ) {
+  for (let line of lines) {
+    const compactLine = line
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    /*
+      Only inspect Elia "ימים ..." date lines.
+      PDF.js may split the word ימים as:
+      י מי ם
+    */
+    if (!/י\s*מ\s*י\s*ם|ימים/.test(compactLine)) {
       continue;
     }
 
-    const normalized = normalizeDateExpression(line);
+    /*
+      Normal extraction:
+      23.07.2026 - 22
+      means visually:
+      22-23.07.2026
+    */
+    let match = compactLine.match(
+      /(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})\s*[-–—]\s*(\d{1,2})/
+    );
 
-    if (
-      normalized &&
-      !dateRanges.includes(normalized)
-    ) {
-      dateRanges.push(normalized);
+    if (match) {
+      const endDay = String(Number(match[1])).padStart(2, '0');
+      const month = String(Number(match[2])).padStart(2, '0');
+      const year = match[3];
+      const startDay = String(Number(match[4])).padStart(2, '0');
+
+      dateRanges.push(
+        `${startDay}-${endDay}.${month}.${year}`
+      );
+
+      continue;
+    }
+
+    /*
+      RTL-fragmented extraction example:
+
+      07.2026 . 0 2 - 19
+
+      Visually this is:
+      19-20.07.2026
+
+      The "20" has been split and reversed as "0 2".
+    */
+    match = compactLine.match(
+      /(\d{1,2})[.\/](\d{4})\s*[.\/]\s*(\d)\s+(\d)\s*[-–—]\s*(\d{1,2})/
+    );
+
+    if (match) {
+      const month = String(Number(match[1])).padStart(2, '0');
+      const year = match[2];
+
+      const endDay = String(
+        Number(match[4] + match[3])
+      ).padStart(2, '0');
+
+      const startDay = String(
+        Number(match[5])
+      ).padStart(2, '0');
+
+      dateRanges.push(
+        `${startDay}-${endDay}.${month}.${year}`
+      );
     }
   }
 
-  if (!dateRanges.length) {
+  const uniqueRanges = [...new Set(dateRanges)];
+
+  if (!uniqueRanges.length) {
     return extractDatesFromDocument(text);
   }
 
-  return dateRanges.join(' + ');
+  return uniqueRanges.join(' + ');
 }
   
 function parseEliaTitle(fileName, text) {
