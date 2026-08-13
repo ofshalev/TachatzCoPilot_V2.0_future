@@ -1024,6 +1024,64 @@ function getDocumentRoutes(lines) {
   return sortRoutes(routes);
 }
 
+function extractEliaAffectedStops(text, sourceName) {
+  const rows = [];
+  const warnings = [];
+
+  const lines = cleanText(text || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const summaryIndex = lines.findIndex(line =>
+    /(?:סיכום\s*[-–—]?\s*)?תחנות\s+מושפעות/.test(line)
+  );
+
+  if (summaryIndex < 0) {
+    warnings.push(
+      `${sourceName}: לא נמצא מקטע תחנות מושפעות במסמך אליה.`
+    );
+
+    return {
+      rows,
+      warnings,
+      hasExplicitNoCancelledStops: false
+    };
+  }
+
+  const summaryLines = lines.slice(summaryIndex);
+
+  /*
+    First version:
+    collect all 5-digit stop codes from the summary section.
+
+    We will distinguish affected stops from alternative stops
+    in the next refinement.
+  */
+  const codes = unique(
+    summaryLines
+      .flatMap(line => line.match(/\b\d{5}\b/g) || [])
+  );
+
+  for (const code of codes) {
+    rows.push({
+      source: sourceName,
+      operator: 'אליה הנדסה',
+      route: '',
+      stop_code: code,
+      stop_name: '',
+      context: 'תחנות מושפעות',
+      mode: 'elia-summary'
+    });
+  }
+
+  return {
+    rows,
+    warnings,
+    hasExplicitNoCancelledStops: false
+  };
+}
+  
 function extractCancelledStops(text, sourceName, operatorName) {
   const rows = [];
   const warnings = [];
@@ -4200,7 +4258,19 @@ document.getElementById('impactBtn').addEventListener('click', async () => {
           cleanText(text).split('\n').map(x => x.trim()).filter(Boolean)
         );
         const operatorName = inferOperator(file.name, text, preliminaryRoutes);
-        const result = extractCancelledStops(text, file.name, operatorName);
+        const format = detectTitleFormat(file.name, text);
+        
+        const result =
+          format === 'elia'
+            ? extractEliaAffectedStops(
+                text,
+                file.name
+              )
+            : extractCancelledStops(
+                text,
+                file.name,
+                operatorName
+              );
         state.hasExplicitNoCancelledStops =
         state.hasExplicitNoCancelledStops ||
         result.hasExplicitNoCancelledStops;
