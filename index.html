@@ -2120,6 +2120,53 @@ function extractEliaDates(text) {
 
   return uniqueRanges.join(' + ');
 }
+
+
+function extractEliaEventDescription(text) {
+  const lines = cleanText(text || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const startIndex = lines.findIndex(line =>
+    /^(?:תיאור|תאור)\s+החסימה$/.test(line) ||
+    /^מהות\s+הסגירה/.test(line)
+  );
+
+  if (startIndex < 0) {
+    return '';
+  }
+
+  const descriptionLines = [];
+
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (
+      /^(?:קווים\s+מושפעים|תיאור\s+ההסטה|תאור\s+ההסטה|הסטה\s+מוצעת|אזור\s+החסימה|מקרא)$/.test(line)
+    ) {
+      break;
+    }
+
+    if (/^\d+\s+eliabs\.com$/i.test(line)) {
+      break;
+    }
+
+    if (
+      line === 'N' ||
+      /^אזור\s+החסימה$/.test(line)
+    ) {
+      continue;
+    }
+
+    descriptionLines.push(line);
+  }
+
+  return cleanText(
+    descriptionLines.join(' ')
+  );
+}
+
   
 function parseEliaTitle(fileName, text) {
   const lines = cleanText(text || '')
@@ -2354,8 +2401,11 @@ function generateEventData(fileNames, text) {
   }
 
   if (result) {
-    result.description = extractEventDescription(text, format);
-  }
+  result.description =
+    format === 'elia'
+      ? extractEliaEventDescription(text)
+      : extractEventDescription(text, format);
+}
 
   return result;
 }
