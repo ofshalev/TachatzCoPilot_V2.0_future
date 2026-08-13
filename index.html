@@ -1535,7 +1535,14 @@ function detectTitleFormat(fileName, text) {
 ) {
   return 'egged';
 }
+  const normalizedText = cleanText(text || '');
 
+  if (
+    /eliabs\.com/i.test(normalizedText) ||
+    /אליה\s+הנדסה/.test(normalizedText)
+  ) {
+    return 'elia';
+  }
   return 'unknown';
 }
 
