@@ -3380,38 +3380,44 @@ function renderEventTimeRanges() {
   const title = state.eventTitle || '';
   const timing = state.eventTiming || '';
 
-  const rangeDateMatch = title.match(
-    /(\d{1,2})-(\d{1,2})\.(\d{1,2})\.(\d{4})/
-  );
+  const dateRanges = [
+  ...title.matchAll(
+    /(\d{1,2})-(\d{1,2})\.(\d{1,2})\.(\d{4})/g
+  )
+];
 
-  const singleDateMatch = title.match(
-    /(\d{1,2})\.(\d{1,2})\.(\d{4})/
-  );
+const singleDates = dateRanges.length
+  ? []
+  : [
+      ...title.matchAll(
+        /(\d{1,2})\.(\d{1,2})\.(\d{4})/g
+      )
+    ];
 
   const timeMatch = timing.match(
     /מ-(\d{2}:\d{2})\s+עד\s+(\d{2}:\d{2})/
   );
 
-  if ((!rangeDateMatch && !singleDateMatch) || !timeMatch) {
-    return;
-  }
+  if (
+  (!dateRanges.length && !singleDates.length) ||
+  !timeMatch
+) {
+  return;
+}
 
-  let startDay;
-  let endDay;
-  let month;
-  let year;
-
-  if (rangeDateMatch) {
-    startDay = Number(rangeDateMatch[1]);
-    endDay = Number(rangeDateMatch[2]);
-    month = Number(rangeDateMatch[3]);
-    year = Number(rangeDateMatch[4]);
-  } else {
-    startDay = Number(singleDateMatch[1]);
-    endDay = startDay;
-    month = Number(singleDateMatch[2]);
-    year = Number(singleDateMatch[3]);
-  }
+const parsedDateRanges = dateRanges.length
+  ? dateRanges.map(match => ({
+      startDay: Number(match[1]),
+      endDay: Number(match[2]),
+      month: Number(match[3]),
+      year: Number(match[4])
+    }))
+  : singleDates.map(match => ({
+      startDay: Number(match[1]),
+      endDay: Number(match[1]),
+      month: Number(match[2]),
+      year: Number(match[3])
+    }));
 
   const startTime = timeMatch[1];
   const endTime = timeMatch[2];
@@ -3532,9 +3538,23 @@ function renderEventTimeRanges() {
     return group;
   }
 
-  for (let day = startDay; day <= endDay; day++) {
-    const startDate = new Date(year, month - 1, day);
-    const endDate = new Date(year, month - 1, day);
+  for (const range of parsedDateRanges) {
+  for (
+    let day = range.startDay;
+    day <= range.endDay;
+    day++
+  ) {
+      const startDate = new Date(
+        range.year,
+        range.month - 1,
+        day
+      );
+      
+      const endDate = new Date(
+        range.year,
+        range.month - 1,
+        day
+      );
 
     if (isOvernightRange(startTime, endTime)) {
       endDate.setDate(endDate.getDate() + 1);
@@ -3568,6 +3588,7 @@ function renderEventTimeRanges() {
     );
 
     list.appendChild(row);
+  }
   }
 
  startSequenceButton.addEventListener('click', () => {
