@@ -2001,7 +2001,76 @@ return {
 }
 
 function parseEliaTitle(fileName, text) {
-  return parseUnknownTitle(fileName, text);
+  const lines = cleanText(text || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const topLines = lines.slice(0, 40);
+
+  const cityCandidates = [
+    'תל אביב',
+    'פתח תקווה',
+    'רמת גן',
+    'גבעת שמואל',
+    'גבעתיים',
+    'ראשון לציון',
+    'חולון',
+    'בת ים',
+    'בני ברק',
+    'הרצליה',
+    'רעננה',
+    'כפר סבא',
+    'ראש העין',
+    'רחובות',
+    'יבנה',
+    'נתניה',
+    'אשדוד',
+    'אשקלון',
+    'לוד',
+    'רמלה',
+    'מודיעין',
+    'הוד השרון',
+    'קריית אונו',
+    'אור יהודה',
+    'יהוד',
+    'נס ציונה'
+  ];
+
+  const headerLine =
+    topLines.find(line =>
+      cityCandidates.some(city => line.includes(city))
+    ) || '';
+
+  const city =
+    cityCandidates.find(city =>
+      headerLine.includes(city)
+    ) || '';
+
+  let location = '';
+
+  if (headerLine) {
+    location = headerLine;
+
+    if (city) {
+      location = location
+        .replace(city, '')
+        .replace(/^[,\s]+/, '')
+        .replace(/[,\s]+$/, '');
+    }
+
+    location = normalizeLocation(location, {
+      preserveJunction: true
+    });
+  }
+
+  return {
+    operator: 'אליה הנדסה',
+    city: normalizeCityName(city),
+    reason: 'עבודות',
+    location,
+    dates: extractDatesFromDocument(text)
+  };
 }
   
 function parseUnknownTitle(fileName, text) {
