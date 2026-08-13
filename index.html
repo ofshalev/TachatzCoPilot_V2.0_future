@@ -3815,33 +3815,18 @@ const overnightContext =
   /בבוקר(?:\s+למחרת)?/i.test(normalized) ||
   /למחרת/i.test(normalized);
 
-const startHour = Number(startTime.split(':')[0]);
-const endHour = Number(endTime.split(':')[0]);
-
-const looksLikeOvernightPair =
-  (startHour <= 8 && endHour >= 18) ||
-  (endHour <= 8 && startHour >= 18);
-
-if (overnightContext || looksLikeOvernightPair) {
+if (overnightContext) {
   /*
-    Overnight ranges should run from the evening
-    to the following morning.
-
-    PDF RTL extraction may return:
-    05:00, 22:00
-
-    Normalize it back to:
-    22:00 -> 05:00
+    For overnight work, the evening time should come first
+    and the morning time second.
   */
-  if (startHour <= 8 && endHour >= 18) {
+  const startHour = Number(startTime.split(':')[0]);
+  const endHour = Number(endTime.split(':')[0]);
+
+  if (startHour < 12 && endHour >= 12) {
     [startTime, endTime] = [endTime, startTime];
   }
 } else if (startMinutes > endMinutes) {
-  /*
-    For a normal same-day range, put the earlier time first.
-  */
-  [startTime, endTime] = [endTime, startTime];
-}
   /*
     For a normal same-day range, put the earlier time first.
   */
