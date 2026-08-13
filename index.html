@@ -2000,6 +2000,10 @@ return {
 };
 }
 
+function parseEliaTitle(fileName, text) {
+  return parseUnknownTitle(fileName, text);
+}
+  
 function parseUnknownTitle(fileName, text) {
   const base = removeFileExtension(fileName);
 
@@ -2129,15 +2133,19 @@ function generateEventData(fileNames, text) {
     format = detectTitleFormat(fileName, text);
 
     if (format === 'dan') {
-      result = parseDanTitle(fileName, text);
-    } else if (format === 'metropoline') {
-      result = parseMetropolineTitle(fileName, text);
+      result = parseDanTitle(fileName);
     } else if (format === 'superbus') {
-      result = parseSuperbusTitle(fileName, text);
+      result = parseSuperbusTitle(fileName);
     } else if (format === 'afikim') {
-      result = parseAfikimTitle(fileName, text);
+      result = parseAfikimTitle(fileName);
+    } else if (format === 'metropoline') {
+      result = parseMetropolineTitle(fileName);
     } else if (format === 'egged') {
-      result = parseEggedTitle(fileName, text);
+      result = parseEggedTitle(fileName);
+    } else if (format === 'elia') {
+      result = parseEliaTitle(fileName, text);
+    } else {
+      result = parseUnknownTitle(fileName, text);
     }
 
     if (!result) {
