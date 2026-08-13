@@ -2001,6 +2001,38 @@ return {
 };
 }
 
+function extractEliaTiming(text) {
+  const normalized = cleanText(text || '')
+    .replace(/\s+/g, ' ');
+
+  const match = normalized.match(
+    /(?:בין\s*השעות|משעה)[\s\S]{0,40}?(\d{1,2}:\d{2})[\s\S]{0,40}?(\d{1,2}:\d{2})/
+  );
+
+  if (!match) {
+    return extractEventTiming(text);
+  }
+
+  let firstTime = normalizeTimingHour(match[1]);
+  let secondTime = normalizeTimingHour(match[2]);
+
+  const firstHour = Number(firstTime.split(':')[0]);
+  const secondHour = Number(secondTime.split(':')[0]);
+
+  /*
+    Elia PDFs may return an overnight range in RTL order:
+    05:00 ... 22:00
+
+    The operational range is:
+    22:00 -> 05:00
+  */
+  if (firstHour <= 8 && secondHour >= 18) {
+    [firstTime, secondTime] = [secondTime, firstTime];
+  }
+
+  return `מ-${firstTime} עד ${secondTime}`;
+}
+  
 function parseEliaTitle(fileName, text) {
   const lines = cleanText(text || '')
     .split('\n')
@@ -2070,7 +2102,8 @@ function parseEliaTitle(fileName, text) {
     city: normalizeCityName(city),
     reason: 'עבודות',
     location,
-    dates: extractDatesFromDocument(text)
+    dates: extractDatesFromDocument(text),
+    timing: extractEliaTiming(text)  
   };
 }
   
@@ -4039,7 +4072,9 @@ document.getElementById('impactBtn').addEventListener('click', async () => {
 
 state.eventTitle = buildEventTitle(eventData);
 state.eventDescription = eventData?.description || '';
-state.eventTiming = extractEventTiming(state.raw);
+state.eventTiming =
+  eventData?.timing ||
+  extractEventTiming(state.raw);
 
 // Display the MOT district according to the parsed primary city.
 updateFutureEventDistrict(eventData?.city || '');
