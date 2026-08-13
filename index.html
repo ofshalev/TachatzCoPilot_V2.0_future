@@ -2044,7 +2044,9 @@ function extractEliaDates(text) {
   const dateRanges = [];
 
   for (const line of lines) {
-    if (!/(?:ביום|בימים|בתאריך|בתאריכים)/.test(line)) {
+    if (
+      !/\b\d{1,2}(?:\s*[-–—]\s*\d{1,2})?[.\/]\d{1,2}[.\/]\d{2,4}\b/.test(line)
+    ) {
       continue;
     }
 
