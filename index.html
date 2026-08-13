@@ -1033,9 +1033,20 @@ function extractEliaAffectedStops(text, sourceName) {
     .map(line => line.trim())
     .filter(Boolean);
 
-  const summaryIndex = lines.findIndex(line =>
-    /(?:סיכום\s*[-–—]?\s*)?תחנות\s+מושפעות/.test(line)
-  );
+  let summaryIndex = -1;
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    const current = compact(lines[i]);
+    const next = compact(lines[i + 1]);
+
+    if (
+      current === 'תחנות' &&
+      next === 'מושפעות'
+    ) {
+      summaryIndex = i + 2;
+      break;
+    }
+  }
 
   if (summaryIndex < 0) {
     warnings.push(
@@ -1051,28 +1062,38 @@ function extractEliaAffectedStops(text, sourceName) {
 
   const summaryLines = lines.slice(summaryIndex);
 
-  /*
-    First version:
-    collect all 5-digit stop codes from the summary section.
+  for (const line of summaryLines) {
+    const codes = line.match(/\b\d{5}\b/g) || [];
 
-    We will distinguish affected stops from alternative stops
-    in the next refinement.
-  */
-  const codes = unique(
-    summaryLines
-      .flatMap(line => line.match(/\b\d{5}\b/g) || [])
-  );
+    /*
+      Elia summary rows are extracted as:
 
-  for (const code of codes) {
+      affected_stop alternative_stop
+
+      Example:
+      21397 21721
+    */
+    if (codes.length < 2) {
+      continue;
+    }
+
+    const affectedStop = codes[0];
+
     rows.push({
       source: sourceName,
       operator: 'אליה הנדסה',
       route: '',
-      stop_code: code,
+      stop_code: affectedStop,
       stop_name: '',
-      context: 'תחנות מושפעות',
+      context: line,
       mode: 'elia-summary'
     });
+  }
+
+  if (!rows.length) {
+    warnings.push(
+      `${sourceName}: נמצא מקטע תחנות מושפעות, אך לא זוהו שורות תחנה מושפעת/חלופית.`
+    );
   }
 
   return {
