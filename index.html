@@ -2032,6 +2032,38 @@ function extractEliaTiming(text) {
 
   return `מ-${firstTime} עד ${secondTime}`;
 }
+
+
+function extractEliaDates(text) {
+  const lines = cleanText(text || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .slice(0, 40);
+
+  const dateRanges = [];
+
+  for (const line of lines) {
+    if (!/(?:ביום|בימים|בתאריך|בתאריכים)/.test(line)) {
+      continue;
+    }
+
+    const normalized = normalizeDateExpression(line);
+
+    if (
+      normalized &&
+      !dateRanges.includes(normalized)
+    ) {
+      dateRanges.push(normalized);
+    }
+  }
+
+  if (!dateRanges.length) {
+    return extractDatesFromDocument(text);
+  }
+
+  return dateRanges.join(' + ');
+}
   
 function parseEliaTitle(fileName, text) {
   const lines = cleanText(text || '')
@@ -2102,7 +2134,7 @@ function parseEliaTitle(fileName, text) {
     city: normalizeCityName(city),
     reason: 'עבודות',
     location,
-    dates: extractDatesFromDocument(text),
+    dates: extractEliaDates(text),
     timing: extractEliaTiming(text)  
   };
 }
