@@ -1507,6 +1507,15 @@ function detectTitleFormat(fileName, text) {
   const base = removeFileExtension(fileName);
   const compactName = compact(base);
 
+  const normalizedText = cleanText(text || '');
+
+  if (
+    /eliabs\.com/i.test(normalizedText) ||
+    /אליה\s+הנדסה/.test(normalizedText)
+  ) {
+    return 'elia';
+  }
+
   if (
     compactName.startsWith('הודעהלנהגיהקווים') ||
     compactName.startsWith('הודעהלנהגיהקוים') ||
@@ -1535,14 +1544,6 @@ function detectTitleFormat(fileName, text) {
 ) {
   return 'egged';
 }
-  const normalizedText = cleanText(text || '');
-
-  if (
-    /eliabs\.com/i.test(normalizedText) ||
-    /אליה\s+הנדסה/.test(normalizedText)
-  ) {
-    return 'elia';
-  }
   return 'unknown';
 }
 
@@ -2200,7 +2201,6 @@ function generateEventData(fileNames, text) {
     */
     const fileName = files[0];
     format = detectTitleFormat(fileName, text);
-    console.log('Detected format:', format);
     if (format === 'dan') {
       result = parseDanTitle(fileName);
     } else if (format === 'superbus') {
