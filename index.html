@@ -1033,10 +1033,23 @@ function extractEliaAffectedStops(text, sourceName) {
     .map(line => line.trim())
     .filter(Boolean);
 
-  let summaryIndex = -1;
+ let summaryIndex = -1;
 
 for (let i = 0; i < lines.length; i++) {
-  if (compact(lines[i]) !== 'תחנות') {
+  const currentLine = compact(lines[i]);
+
+  // Elia documents may extract the heading as one line:
+  // "סיכום – תחנות מושפעות"
+  if (
+    currentLine.includes('תחנות') &&
+    currentLine.includes('מושפעות')
+  ) {
+    summaryIndex = i + 1;
+    break;
+  }
+
+  // Older Elia documents may extract the words separately.
+  if (currentLine !== 'תחנות') {
     continue;
   }
 
@@ -1081,7 +1094,7 @@ for (let i = 0; i < lines.length; i++) {
       Example:
       21397 21721
     */
-    if (codes.length < 2) {
+    if (!codes.length) {
       continue;
     }
 
