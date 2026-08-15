@@ -656,18 +656,33 @@ function extractEliaSummaryRowsFromItems(items) {
     const affectedStop = affectedItem.str;
 
     /*
-      Route numbers appear to the left of the alternative-stop
-      columns. Do not treat 5-digit stop codes as routes.
-    */
-    const routes = [
-      ...new Set(
-        row.items
-          .filter(item => item.x < affectedItem.x)
-          .flatMap(item =>
-            item.str.match(/\b\d{1,3}\b/g) || []
-          )
+  When an alternative stop exists on the same visual row,
+  Elia's affected-route column lies between the alternative
+  stop code and the affected stop code.
+
+  Numbers farther left belong to "חלופית עבור קווים"
+  and must not be assigned to the affected stop.
+*/
+const alternativeItems = fiveDigitItems.filter(
+  item => item !== affectedItem
+);
+
+const routeLeftBoundary = alternativeItems.length
+  ? Math.max(...alternativeItems.map(item => item.x))
+  : -Infinity;
+
+const routes = [
+  ...new Set(
+    row.items
+      .filter(item =>
+        item.x > routeLeftBoundary &&
+        item.x < affectedItem.x
       )
-    ];
+      .flatMap(item =>
+        item.str.match(/\b\d{1,3}\b/g) || []
+      )
+  )
+];
 
     rows.push({
       stop_code: affectedStop,
