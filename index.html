@@ -592,6 +592,92 @@ function parseRouteTokens(s) {
   return sortRoutes(tokens);
 }
 
+function extractEliaSummaryRowsFromItems(items) {
+  const visualRows = [];
+
+  for (const item of items) {
+    const str = (item.str || '').trim();
+
+    if (!str) {
+      continue;
+    }
+
+    const x = (item.transform && item.transform[4]) || 0;
+    const y = (item.transform && item.transform[5]) || 0;
+
+    let row = visualRows.find(
+      current => Math.abs(current.y - y) <= 4
+    );
+
+    if (!row) {
+      row = {
+        y,
+        items: []
+      };
+
+      visualRows.push(row);
+    }
+
+    row.items.push({
+      x,
+      str
+    });
+  }
+
+  visualRows.sort((a, b) => b.y - a.y);
+
+  const rows = [];
+
+  for (const row of visualRows) {
+    const fiveDigitItems = row.items.filter(
+      item => /^\d{5}$/.test(item.str)
+    );
+
+    if (!fiveDigitItems.length) {
+      continue;
+    }
+
+    /*
+      Elia's summary tables place the affected-stop column
+      on the right side of the table.
+
+      Therefore the rightmost 5-digit code is the affected stop.
+      Any other 5-digit code on the row belongs to an
+      alternative-stop column.
+    */
+    const affectedItem = fiveDigitItems.reduce(
+      (rightmost, item) =>
+        !rightmost || item.x > rightmost.x
+          ? item
+          : rightmost,
+      null
+    );
+
+    const affectedStop = affectedItem.str;
+
+    /*
+      Route numbers appear to the left of the alternative-stop
+      columns. Do not treat 5-digit stop codes as routes.
+    */
+    const routes = [
+      ...new Set(
+        row.items
+          .filter(item => item.x < affectedItem.x)
+          .flatMap(item =>
+            item.str.match(/\b\d{1,3}\b/g) || []
+          )
+      )
+    ];
+
+    rows.push({
+      stop_code: affectedStop,
+      routes
+    });
+  }
+
+  return rows;
+}
+  
 function textItemsToLines(items) {
   // PDF.js often returns each visual text item separately. Group nearby items by their Y coordinate
   // so Superbus-style PDF rows like "36243 - כצנלסון/אנילביץ'" become one logical line.
@@ -1024,7 +1110,7 @@ function getDocumentRoutes(lines) {
   return sortRoutes(routes);
 }
 
-function extractEliaAffectedStops(text, sourceName) {
+function extractEliaAffectedStops(text, sourceName, pdfPages = []) {
   const rows = [];
   const warnings = [];
 
@@ -1297,27 +1383,66 @@ if (stops.length && currentRoutes.length) {
   };
 }
 
-async function readFileAsText(file) {
+async function readFileAsText(file, withLayout = false) {
   const name = file.name.toLowerCase();
-  if (name.endsWith('.txt')) return await file.text();
+  if (name.endsWith('.txt')) {
+    const text = await file.text();
+  
+    return withLayout
+      ? { text, pdfPages: [] }
+      : text;
+  }
   if (name.endsWith('.docx')) {
     const buffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer: buffer });
-    return result.value || '';
+    const text = result.value || '';
+    
+    return withLayout
+      ? { text, pdfPages: [] }
+      : text;
   }
-  if (name.endsWith('.pdf')) {
-    if (!window.pdfjsLib) throw new Error('PDF.js לא נטען');
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-    let text = '';
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      const pageText = textItemsToLines(content.items);
-      text += `\n\n--- PAGE ${p} ---\n` + pageText;
+ if (name.endsWith('.pdf')) {
+  if (!window.pdfjsLib) {
+    throw new Error('PDF.js לא נטען');
+  }
+
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({
+    data: buffer
+  }).promise;
+
+  let text = '';
+  const pdfPages = [];
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+
+    const pageText = textItemsToLines(
+      content.items
+    );
+
+    text +=
+      `\n\n--- PAGE ${p} ---\n` +
+      pageText;
+
+    if (withLayout) {
+      pdfPages.push({
+        pageNumber: p,
+        items: content.items
+      });
     }
-    return text;
   }
+
+  if (withLayout) {
+    return {
+      text,
+      pdfPages
+    };
+  }
+
+  return text;
+}
   if (name.endsWith('.doc')) {
     throw new Error('קובץ DOC ישן אינו נתמך בגרסת דפדפן. יש להמיר ל-DOCX או PDF.');
   }
@@ -4383,7 +4508,13 @@ document.getElementById('impactBtn').addEventListener('click', async () => {
   try {
     for (const file of files) {
       try {
-        const text = await readFileAsText(file);
+        const fileData = await readFileAsText(
+          file,
+          true
+        );
+        
+        const text = fileData.text;
+        const pdfPages = fileData.pdfPages;
         state.filesRead.push(file.name);
         state.raw += `\n\n================ ${file.name} ================\n` + text;
         const preliminaryRoutes = getDocumentRoutes(
@@ -4395,9 +4526,10 @@ document.getElementById('impactBtn').addEventListener('click', async () => {
         const result =
           format === 'elia'
             ? extractEliaAffectedStops(
-                text,
-                file.name
-              )
+              text,
+              file.name,
+              pdfPages
+            )
             : extractCancelledStops(
                 text,
                 file.name,
