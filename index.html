@@ -626,32 +626,47 @@ function extractEliaSummaryRowsFromItems(items) {
 
   visualRows.sort((a, b) => b.y - a.y);
 
+/*
+  Determine the X position of Elia's affected-stop column.
+
+  On the summary table, affected-stop codes are the rightmost
+  5-digit stop-code column. Alternative-only rows may contain
+  a 5-digit code farther left and must not be treated as affected.
+*/
+const allFiveDigitItems = visualRows.flatMap(row =>
+  row.items.filter(item =>
+    /^\d{5}$/.test(item.str)
+  )
+);
+
+const affectedColumnX = allFiveDigitItems.length
+  ? Math.max(...allFiveDigitItems.map(item => item.x))
+  : null;
+  
   const rows = [];
 
   for (const row of visualRows) {
-    const fiveDigitItems = row.items.filter(
-      item => /^\d{5}$/.test(item.str)
-    );
+const fiveDigitItems = row.items.filter(
+  item => /^\d{5}$/.test(item.str)
+);
 
-    if (!fiveDigitItems.length) {
-      continue;
-    }
+if (!fiveDigitItems.length || affectedColumnX === null) {
+  continue;
+}
 
-    /*
-      Elia's summary tables place the affected-stop column
-      on the right side of the table.
+/*
+  Only accept a stop code that actually sits in the
+  affected-stop column.
 
-      Therefore the rightmost 5-digit code is the affected stop.
-      Any other 5-digit code on the row belongs to an
-      alternative-stop column.
-    */
-    const affectedItem = fiveDigitItems.reduce(
-      (rightmost, item) =>
-        !rightmost || item.x > rightmost.x
-          ? item
-          : rightmost,
-      null
-    );
+  If the row contains only an alternative stop, skip it.
+*/
+const affectedItem = fiveDigitItems.find(
+  item => Math.abs(item.x - affectedColumnX) <= 25
+);
+
+if (!affectedItem) {
+  continue;
+}
 
     const affectedStop = affectedItem.str;
 
