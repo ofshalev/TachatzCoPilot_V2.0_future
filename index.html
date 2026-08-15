@@ -1130,22 +1130,26 @@ function extractEliaAffectedStops(text, sourceName) {
 
       Any later 5-digit code may be an alternative stop.
     */
-    const affectedMatch = stopMatches[0];
-    const affectedStop = affectedMatch[0];
+const affectedMatch =
+  /כל\s*הקווים/.test(line) && stopMatches.length > 1
+    ? stopMatches[1]
+    : stopMatches[0];
 
-    if (/כל\s*הקווים/.test(line)) {
-      rows.push({
-        source: sourceName,
-        operator: 'אליה הנדסה',
-        route: '__ALL__',
-        stop_code: affectedStop,
-        stop_name: '',
-        context: line,
-        mode: 'elia-summary-all-routes'
-      });
+const affectedStop = affectedMatch[0];
 
-      continue;
-    }
+if (/כל\s*הקווים/.test(line)) {
+  rows.push({
+    source: sourceName,
+    operator: 'אליה הנדסה',
+    route: '__ALL__',
+    stop_code: affectedStop,
+    stop_name: '',
+    context: line,
+    mode: 'elia-summary-all-routes'
+  });
+
+  continue;
+}
 
     /*
       Route numbers may appear either before or after the
