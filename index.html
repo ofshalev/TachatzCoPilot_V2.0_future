@@ -1167,6 +1167,72 @@ function extractEliaAffectedStops(text, sourceName, pdfPages = []) {
     };
   }
 
+
+/*
+  Prefer coordinate-aware parsing for Elia PDF summary tables.
+
+  The flattened RTL text order is unreliable: affected and
+  alternative stop codes can switch order. PDF coordinates let
+  us identify the affected-stop column visually instead.
+*/
+for (const pageData of pdfPages) {
+  const pageText = textItemsToLines(pageData.items);
+  const pageCompact = compact(pageText);
+
+  if (
+    !pageCompact.includes('תחנות') ||
+    !pageCompact.includes('מושפעות')
+  ) {
+    continue;
+  }
+
+  const visualRows =
+    extractEliaSummaryRowsFromItems(pageData.items);
+
+  for (const visualRow of visualRows) {
+    const affectedStop = visualRow.stop_code;
+    const routes = visualRow.routes || [];
+
+    if (!routes.length) {
+      rows.push({
+        source: sourceName,
+        operator: 'אליה הנדסה',
+        route: '__ALL__',
+        stop_code: affectedStop,
+        stop_name: '',
+        context: `Elia visual summary page ${pageData.pageNumber}`,
+        mode: 'elia-summary-layout-all-routes'
+      });
+
+      continue;
+    }
+
+    for (const route of routes) {
+      rows.push({
+        source: sourceName,
+        operator: 'אליה הנדסה',
+        route,
+        stop_code: affectedStop,
+        stop_name: '',
+        context: `Elia visual summary page ${pageData.pageNumber}`,
+        mode: 'elia-summary-layout-routes'
+      });
+    }
+  }
+
+  /*
+    If coordinate-aware parsing succeeded, do not run the old
+    flattened-text parser on the same table.
+  */
+  if (rows.length) {
+    return {
+      rows,
+      warnings,
+      hasExplicitNoCancelledStops: false
+    };
+  }
+}
+  
   const summaryLines = lines.slice(summaryIndex);
 
   for (const line of summaryLines) {
