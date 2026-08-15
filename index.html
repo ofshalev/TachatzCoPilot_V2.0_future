@@ -1084,32 +1084,78 @@ function extractEliaAffectedStops(text, sourceName) {
   const summaryLines = lines.slice(summaryIndex);
 
   for (const line of summaryLines) {
-    const stopMatches = [...line.matchAll(/\b\d{5}\b/g)];
+  const stopMatches = [
+    ...line.matchAll(/\b\d{5}\b/g)
+  ];
 
-    if (!stopMatches.length) {
-      continue;
-    }
-
+  if (!stopMatches.length) {
+    continue;
+  }
 
   /*
-    Compact Elia rows can be extracted as:
+    Elia's RTL PDF extraction commonly produces either:
 
-    route affected_stop
+    affected_stop
 
-    Examples:
-    9 25872
-    9 25819
-    3 25877
-    79 25629
+    or:
+
+    alternative_stop affected_stop
+
+    Therefore, when two stop codes exist, the second one is
+    the affected stop.
   */
-  const compactRouteStopMatch = line.match(
-    /^\s*(\d{1,3})\s+(\d{5})\b/
+  const affectedMatch =
+    stopMatches.length > 1
+      ? stopMatches[1]
+      : stopMatches[0];
+
+  const affectedStop = affectedMatch[0];
+
+  /*
+    Remove stop codes before extracting route numbers.
+
+    This allows both Elia layouts:
+
+    5, 289 20309 25070
+    25877 3
+
+    without confusing five-digit stop codes with routes.
+  */
+  const routeText = line.replace(
+    /\b\d{5}\b/g,
+    ' '
   );
 
-  if (compactRouteStopMatch) {
-    const route = compactRouteStopMatch[1];
-    const affectedStop = compactRouteStopMatch[2];
+  const routes = [
+    ...new Set(
+      (routeText.match(/\b\d{1,3}\b/g) || [])
+        .map(route => route.trim())
+        .filter(Boolean)
+    )
+  ];
 
+  /*
+    A blank routes cell in an Elia affected-stops summary
+    means the stop is affected for all routes in the notice.
+  */
+  if (
+    /כל\s*הקווים/.test(line) ||
+    !routes.length
+  ) {
+    rows.push({
+      source: sourceName,
+      operator: 'אליה הנדסה',
+      route: '__ALL__',
+      stop_code: affectedStop,
+      stop_name: '',
+      context: line,
+      mode: 'elia-summary-all-routes'
+    });
+
+    continue;
+  }
+
+  for (const route of routes) {
     rows.push({
       source: sourceName,
       operator: 'אליה הנדסה',
@@ -1117,83 +1163,10 @@ function extractEliaAffectedStops(text, sourceName) {
       stop_code: affectedStop,
       stop_name: '',
       context: line,
-      mode: 'elia-summary-route-stop'
+      mode: 'elia-summary-routes'
     });
-
-    continue;
   }
-
-    
-    /*
-      The first 5-digit code in an Elia summary row is treated
-      as the affected stop.
-
-      Any later 5-digit code may be an alternative stop.
-    */
-const affectedMatch =
-  /כל\s*הקווים/.test(line) && stopMatches.length > 1
-    ? stopMatches[1]
-    : stopMatches[0];
-
-const affectedStop = affectedMatch[0];
-
-if (/כל\s*הקווים/.test(line)) {
-  rows.push({
-    source: sourceName,
-    operator: 'אליה הנדסה',
-    route: '__ALL__',
-    stop_code: affectedStop,
-    stop_name: '',
-    context: line,
-    mode: 'elia-summary-all-routes'
-  });
-
-  continue;
 }
-
-    /*
-      Route numbers may appear either before or after the
-      affected stop because of RTL PDF extraction.
-
-      Stop reading route numbers before a second 5-digit code,
-      since that is normally the alternative stop.
-    */
-    const affectedStart = affectedMatch.index;
-    const affectedEnd =
-      affectedStart + affectedStop.length;
-
-    const secondStopStart =
-      stopMatches.length > 1
-        ? stopMatches[1].index
-        : line.length;
-
-    const routeText =
-      line.slice(affectedEnd, secondStopStart);
-
-    const routes = [
-      ...new Set(
-        (routeText.match(/\b\d{1,3}\b/g) || [])
-          .map(route => route.trim())
-          .filter(Boolean)
-      )
-    ];
-
-    if (!routes.length) {
-      continue;
-    }
-
-    for (const route of routes) {
-      rows.push({
-        source: sourceName,
-        operator: 'אליה הנדסה',
-        route,
-        stop_code: affectedStop,
-        stop_name: '',
-        context: line,
-        mode: 'elia-summary-routes'
-      });
-    }
-  }
 
   if (!rows.length) {
     warnings.push(
