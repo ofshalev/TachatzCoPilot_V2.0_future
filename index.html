@@ -4426,6 +4426,9 @@ document.getElementById('impactBtn').addEventListener('click', async () => {
                 file.name,
                 operatorName
               );
+        if (format === 'elia') {
+          console.log('ELIA EXTRACTED ROWS:', result.rows);
+        }
         state.hasExplicitNoCancelledStops =
         state.hasExplicitNoCancelledStops ||
         result.hasExplicitNoCancelledStops;
