@@ -1033,41 +1033,41 @@ function extractEliaAffectedStops(text, sourceName) {
     .map(line => line.trim())
     .filter(Boolean);
 
- let summaryIndex = -1;
+  let summaryIndex = -1;
 
-for (let i = 0; i < lines.length; i++) {
-  const currentLine = compact(lines[i]);
+  for (let i = 0; i < lines.length; i++) {
+    const currentLine = compact(lines[i]);
 
-  // Elia documents may extract the heading as one line:
-  // "סיכום – תחנות מושפעות"
-  if (
-    currentLine.includes('תחנות') &&
-    currentLine.includes('מושפעות')
-  ) {
-    summaryIndex = i + 1;
-    break;
-  }
+    // Newer Elia extraction:
+    // "סיכום – תחנות מושפעות"
+    if (
+      currentLine.includes('תחנות') &&
+      currentLine.includes('מושפעות')
+    ) {
+      summaryIndex = i + 1;
+      break;
+    }
 
-  // Older Elia documents may extract the words separately.
-  if (currentLine !== 'תחנות') {
-    continue;
-  }
+    // Older Elia extraction where the heading is split.
+    if (currentLine !== 'תחנות') {
+      continue;
+    }
 
-  for (
-    let j = i + 1;
-    j < Math.min(i + 6, lines.length);
-    j++
-  ) {
-    if (compact(lines[j]) === 'מושפעות') {
-      summaryIndex = j + 1;
+    for (
+      let j = i + 1;
+      j < Math.min(i + 6, lines.length);
+      j++
+    ) {
+      if (compact(lines[j]) === 'מושפעות') {
+        summaryIndex = j + 1;
+        break;
+      }
+    }
+
+    if (summaryIndex >= 0) {
       break;
     }
   }
-
-  if (summaryIndex >= 0) {
-    break;
-  }
-}
 
   if (summaryIndex < 0) {
     warnings.push(
@@ -1084,36 +1084,84 @@ for (let i = 0; i < lines.length; i++) {
   const summaryLines = lines.slice(summaryIndex);
 
   for (const line of summaryLines) {
-    const codes = line.match(/\b\d{5}\b/g) || [];
+    const stopMatches = [...line.matchAll(/\b\d{5}\b/g)];
 
-    /*
-      Elia summary rows are extracted as:
-
-      affected_stop alternative_stop
-
-      Example:
-      21397 21721
-    */
-    if (!codes.length) {
+    if (!stopMatches.length) {
       continue;
     }
 
-    const affectedStop = codes[0];
+    /*
+      The first 5-digit code in an Elia summary row is treated
+      as the affected stop.
 
-    rows.push({
-      source: sourceName,
-      operator: 'אליה הנדסה',
-      route: '__ALL__',
-      stop_code: affectedStop,
-      stop_name: '',
-      context: line,
-      mode: 'elia-summary-all-routes'
-    });
+      Any later 5-digit code may be an alternative stop.
+    */
+    const affectedMatch = stopMatches[0];
+    const affectedStop = affectedMatch[0];
+
+    if (/כל\s*הקווים/.test(line)) {
+      rows.push({
+        source: sourceName,
+        operator: 'אליה הנדסה',
+        route: '__ALL__',
+        stop_code: affectedStop,
+        stop_name: '',
+        context: line,
+        mode: 'elia-summary-all-routes'
+      });
+
+      continue;
+    }
+
+    /*
+      Route numbers may appear either before or after the
+      affected stop because of RTL PDF extraction.
+
+      Stop reading route numbers before a second 5-digit code,
+      since that is normally the alternative stop.
+    */
+    const affectedStart = affectedMatch.index;
+    const affectedEnd =
+      affectedStart + affectedStop.length;
+
+    const secondStopStart =
+      stopMatches.length > 1
+        ? stopMatches[1].index
+        : line.length;
+
+    const routeText =
+      line.slice(0, affectedStart) +
+      ' ' +
+      line.slice(affectedEnd, secondStopStart);
+
+    const routes = [
+      ...new Set(
+        (routeText.match(/\b\d{1,3}\b/g) || [])
+          .map(route => route.trim())
+          .filter(Boolean)
+      )
+    ];
+
+    if (!routes.length) {
+      continue;
+    }
+
+    for (const route of routes) {
+      rows.push({
+        source: sourceName,
+        operator: 'אליה הנדסה',
+        route,
+        stop_code: affectedStop,
+        stop_name: '',
+        context: line,
+        mode: 'elia-summary-routes'
+      });
+    }
   }
 
   if (!rows.length) {
     warnings.push(
-      `${sourceName}: נמצא מקטע תחנות מושפעות, אך לא זוהו שורות תחנה מושפעת/חלופית.`
+      `${sourceName}: נמצא מקטע תחנות מושפעות, אך לא זוהו תחנות מושפעות.`
     );
   }
 
