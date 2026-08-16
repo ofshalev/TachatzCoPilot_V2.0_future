@@ -3671,19 +3671,28 @@ function renderEventTimeRanges() {
   const title = state.eventTitle || '';
   const timing = state.eventTiming || '';
 
-  const dateRanges = [
+const dateRanges = [
   ...title.matchAll(
     /(\d{1,2})-(\d{1,2})\.(\d{1,2})\.(\d{4})/g
   )
 ];
 
-const singleDates = dateRanges.length
+const splitDates = dateRanges.length
   ? []
   : [
       ...title.matchAll(
-        /(\d{1,2})\.(\d{1,2})\.(\d{4})/g
+        /(\d{1,2})\s*[,+]\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/g
       )
     ];
+
+const singleDates =
+  dateRanges.length || splitDates.length
+    ? []
+    : [
+        ...title.matchAll(
+          /(\d{1,2})\.(\d{1,2})\.(\d{4})/g
+        )
+      ];
 
   const timeMatch = timing.match(
     /מ-(\d{2}:\d{2})\s+עד\s+(\d{2}:\d{2})/
@@ -3696,19 +3705,34 @@ const singleDates = dateRanges.length
   return;
 }
 
-const parsedDateRanges = dateRanges.length
+cconst parsedDateRanges = dateRanges.length
   ? dateRanges.map(match => ({
       startDay: Number(match[1]),
       endDay: Number(match[2]),
       month: Number(match[3]),
       year: Number(match[4])
     }))
-  : singleDates.map(match => ({
-      startDay: Number(match[1]),
-      endDay: Number(match[1]),
-      month: Number(match[2]),
-      year: Number(match[3])
-    }));
+  : splitDates.length
+    ? splitDates.flatMap(match => [
+        {
+          startDay: Number(match[1]),
+          endDay: Number(match[1]),
+          month: Number(match[3]),
+          year: Number(match[4])
+        },
+        {
+          startDay: Number(match[2]),
+          endDay: Number(match[2]),
+          month: Number(match[3]),
+          year: Number(match[4])
+        }
+      ])
+    : singleDates.map(match => ({
+        startDay: Number(match[1]),
+        endDay: Number(match[1]),
+        month: Number(match[2]),
+        year: Number(match[3])
+      }));
 
   const startTime = timeMatch[1];
   const endTime = timeMatch[2];
