@@ -3699,13 +3699,17 @@ const singleDates =
   );
 
   if (
-  (!dateRanges.length && !singleDates.length) ||
+  (
+    !dateRanges.length &&
+    !splitDates.length &&
+    !singleDates.length
+  ) ||
   !timeMatch
 ) {
   return;
 }
 
-cconst parsedDateRanges = dateRanges.length
+const parsedDateRanges = dateRanges.length
   ? dateRanges.map(match => ({
       startDay: Number(match[1]),
       endDay: Number(match[2]),
